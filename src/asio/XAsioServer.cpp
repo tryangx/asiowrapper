@@ -1,4 +1,4 @@
-#include "../include/XAsioServer.h"
+#include "../../include/asio/XAsioServer.h"
 
 namespace XASIO
 {
@@ -61,7 +61,6 @@ namespace XASIO
 
 	void XServerSession::sendThread()
 	{
-		return;
 		try
 		{
 			while( 1 )
@@ -73,7 +72,7 @@ namespace XASIO
 				sprintf_s( p.info, sizeof(p.info), "from server" );
 
 				XAsioPackageHeader header;
-				header.m_dwPackageSize = sizeof(p);
+				header.m_dwSize = sizeof(p);
 
 				XAsioBuffer buff;
 				buff.copyFrom( &header, sizeof(header) );
@@ -97,14 +96,14 @@ namespace XASIO
 
 	void XServerSession::recv()
 	{
-		if ( m_bReadHeader && m_packageHeader.m_dwPackageSize > 0 )
+		if ( m_bReadHeader && m_packageHeader.m_dwSize > 0 )
 		{
-			m_tcpSession->read( m_packageHeader.m_dwPackageSize );
+			m_tcpSession->read( m_packageHeader.m_dwSize );
 		}
 		else
 		{
 			m_bReadHeader = false;
-			m_tcpSession->read( XAsioPackageHeader::getSize() );
+			m_tcpSession->read( XAsioPackageHeader::getHeaderSize() );
 		}		
 	}
 

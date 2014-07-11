@@ -7,6 +7,7 @@
 
 #include "XAsioService.h"
 #include "XAsioHelper.h"
+#include "XAsioPackage.h"
 
 namespace XASIO
 {
@@ -80,7 +81,7 @@ namespace XASIO
 		boost::asio::streambuf				m_streamRequest;
 		boost::asio::streambuf				m_streamResponse;
 #ifdef USE_RECV_BUFFER
-		char								m_szReadBuffer[MAX_MSG_LEN];
+		char								m_szReadBuffer[MAX_PACKAGE_LEN];
 #endif
 
 		std::function<void()>				m_funcReadCompleteHandler;

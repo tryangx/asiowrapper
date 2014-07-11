@@ -37,16 +37,6 @@ using namespace boost::system;
 
 namespace XASIO
 {
-	//消息最大长度
-#ifndef MAX_MSG_LEN
-#define MAX_MSG_LEN				4096
-#endif
-
-	//最大消息数量
-#ifndef MAX_MSG_NUM
-#define MAX_MSG_NUM				1024
-#endif
-
 #ifndef UNIFIED_OUT_BUF_NUM
 #define UNIFIED_OUT_BUF_NUM		2048
 #endif

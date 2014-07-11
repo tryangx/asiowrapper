@@ -1,6 +1,7 @@
 #pragma once
 
 #include "XAsioInterface.h"
+#include "../util/XLog.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 

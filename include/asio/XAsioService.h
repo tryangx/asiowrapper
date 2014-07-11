@@ -34,14 +34,14 @@ namespace XASIO
 		~XAsioInterface();
 				
 		//服务是否启动
-		bool		isStarted() const;
+		bool				isStarted() const;
 		//启动服务
-		void		startService();
+		void				startService();
 		//停止服务
-		void		stopService();
+		void				stopService();
 
-		unsigned int	getId() const;
-		void			setId( unsigned int id );
+		unsigned int		getId() const;
+		void				setId( unsigned int id );
 
 		//io_service
 		XAsioService&		getIOService();
@@ -54,13 +54,6 @@ namespace XASIO
 		 */
 		template< typename HANDLER, typename OBJECT >
 		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
-				
-	protected:
-		//initialize
-		virtual void init() = 0;
-
-		//release
-		virtual void release() = 0;
 		
 	protected:
 		XAsioService&				m_service;

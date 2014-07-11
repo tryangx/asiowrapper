@@ -1,4 +1,4 @@
-#include "../include/XAsioHelper.h"
+#include "../../include/asio/XAsioHelper.h"
 
 namespace XASIO
 {
@@ -13,19 +13,6 @@ namespace XASIO
 	XAsioBuffer stringToBuffer( std::string& value )
 	{
 		return XAsioBuffer( &value[ 0 ], value.size() );
-	}
-
-	/**
-	 * Êä³ö×Ö·û´®
-	 */
-	char* outputString( const char* pszFormat, ... )
-	{
-		static char text[1024];
-		va_list args;
-		va_start(args, pszFormat);
-		_vsnprintf_s( text, sizeof(text), pszFormat, args);
-		va_end(args);
-		return text;
 	}
 
 	//-----------------------------------------
@@ -165,13 +152,13 @@ namespace XASIO
 		memcpy( m_bufData->_pData, pData, size );
 	}
 	
-	XAsioPackageHeader::XAsioPackageHeader() : m_dwFlag(0), m_dwPackageSize(0)
+	XAsioPackageHeader::XAsioPackageHeader() : m_dwFlag(0), m_dwSize(0), m_dwToken(0), m_dwType(0)
 	{
 	}
 
 	void XAsioPackageHeader::parseFromBuffer( XAsioBuffer& buff )
 	{
-		memcpy_s( this, XAsioPackageHeader::getSize(), buff.getData(), XAsioPackageHeader::getSize() );
+		memcpy_s( this, XAsioPackageHeader::getHeaderSize(), buff.getData(), XAsioPackageHeader::getHeaderSize() );
 	}
 
 	XAsioPackage::XAsioPackage()

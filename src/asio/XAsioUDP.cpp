@@ -1,4 +1,4 @@
-#include "../include/XAsioUDP.h"
+#include "../../include/asio/XAsioUDP.h"
 #include <boost/lexical_cast.hpp>
 
 namespace XASIO

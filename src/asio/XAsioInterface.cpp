@@ -1,5 +1,5 @@
-#include "../include/XAsioInterface.h"
-#include "../include/XAsioService.h"
+#include "../../include/asio/XAsioInterface.h"
+#include "../../include/asio/XAsioService.h"
 
 namespace XASIO
 {
@@ -79,7 +79,7 @@ namespace XASIO
 				char* pData;
 				bool useTempBuffer = true;
 #ifdef USE_RECV_BUFFER
-				if ( bytesTransferred < MAX_MSG_LEN )
+				if ( bytesTransferred < MAX_PACKAGE_LEN )
 				{
 					pData = m_szReadBuffer;
 					useTempBuffer = false;
