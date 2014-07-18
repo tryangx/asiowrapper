@@ -27,8 +27,8 @@ namespace XASIO
 	}
 
 	bool XAsioInterface::isStarted() const { return m_bIsStarted; }
-	void XAsioInterface::startService() { if ( !m_bIsStarted ) { m_bIsStarted = true; } }	
-	void XAsioInterface::stopService() { if ( m_bIsStarted ) { m_bIsStarted = false; } }
+	void XAsioInterface::startService() { if ( !m_bIsStarted ) { m_bIsStarted = true; init(); } }	
+	void XAsioInterface::stopService() { if ( m_bIsStarted ) { m_bIsStarted = false; release(); } }
 	
 	unsigned int XAsioInterface::getId() const { return m_id; }
 	void XAsioInterface::setId( unsigned int id ) { m_id = id; }

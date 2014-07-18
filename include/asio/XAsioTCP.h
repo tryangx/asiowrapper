@@ -39,7 +39,7 @@ namespace XASIO
 		/**
 		 * 是否打开
 		 */
-		void			isOpen();			
+		bool			isOpen();			
 
 		/**
 		 * 关闭会话
@@ -82,9 +82,7 @@ namespace XASIO
 
 	public:
 		~XAsioTCPClient();
-
-		TcpResolverPtr	getResolver() const;
-
+		
 		virtual void	init();
 
 		virtual void	release();

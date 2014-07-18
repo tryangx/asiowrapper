@@ -58,7 +58,7 @@ namespace XASIO
 	}
 	
 	XAsioUDPClient::XAsioUDPClient( XAsioService& io )
-		: XAsioClientInterface( io ), m_funcConnectHandler( nullptr ), m_resolver( nullptr )
+		: XAsioClientInterface( io ), m_funcConnectHandler( nullptr ), m_ptrResolver( nullptr )
 	{
 	}
 
@@ -75,20 +75,18 @@ namespace XASIO
 	void XAsioUDPClient::connect( const std::string& host, const std::string& protocol )
 	{
 		udp::resolver::query query( host, protocol );
-		m_resolver = UdpResolverPtr( new udp::resolver( m_strand.get_io_service() ) );
-		m_resolver->async_resolve( query, 
-			m_strand.wrap( boost::bind( &XAsioUDPClient::onResolve, shared_from_this(),
+		if ( m_ptrResolver != nullptr )
+		{
+			m_ptrResolver = UdpResolverPtr( new udp::resolver( m_strand.get_io_service() ) );
+		}
+		m_ptrResolver->async_resolve( query, 
+			m_strand.wrap( boost::bind( &XAsioUDPClient::onResolveCallback, shared_from_this(),
 			boost::asio::placeholders::error, boost::asio::placeholders::iterator ) ) );
 	}
 
 	void XAsioUDPClient::setConnectHandler( const std::function< void( UdpSessionPtr ) >& eventHandler )
 	{
 		m_funcConnectHandler = eventHandler;
-	}
-
-	const UdpResolverPtr& XAsioUDPClient::getResolver() const
-	{
-		return  m_resolver;
 	}
 
 	void XAsioUDPClient::init()
@@ -98,23 +96,8 @@ namespace XASIO
 	void XAsioUDPClient::release()
 	{
 	}
-
-	void XAsioUDPClient::onConnect( UdpSessionPtr session, const boost::system::error_code& err )
-	{
-		if ( err )
-		{
-			if ( m_funcLogHandler != nullptr )
-			{
-				m_funcLogHandler( err.message() );
-			}
-		}
-		else if ( m_funcConnectHandler != nullptr )
-		{
-			m_funcConnectHandler( session );
-		}
-	}
-
-	void XAsioUDPClient::onResolve( const boost::system::error_code& err, udp::resolver::iterator it )
+	
+	void XAsioUDPClient::onResolveCallback( const boost::system::error_code& err, udp::resolver::iterator it )
 	{
 		if ( err )
 		{
@@ -131,7 +114,7 @@ namespace XASIO
 			}
 			UdpSessionPtr session( new XAsioUDPSession( m_service ) );
 			boost::asio::async_connect( *session->getSocket(), it, 
-				m_strand.wrap( boost::bind( &XAsioUDPClient::onConnect, 
+				m_strand.wrap( boost::bind( &XAsioUDPClient::onConnectCallback, 
 				shared_from_this(), session, boost::asio::placeholders::error ) ) );
 		}
 	}
@@ -166,9 +149,12 @@ namespace XASIO
 
 	void XAsioUDPServer::startAccept( int threadNum, uint16_t port )
 	{
-		UdpSessionPtr session = XAsioUDPSession::create( m_service );
+		if ( m_ptrSession != nullptr )
+		{
+			m_ptrSession = UdpSessionPtr( new XAsioUDPSession( m_service ) )->shared_from_this();
+		}
 		boost::system::error_code err;
-		session->getSocket()->open( boost::asio::ip::udp::v4(), err );
+		m_ptrSession->getSocket()->open( boost::asio::ip::udp::v4(), err );
 		if ( err ) 
 		{
 			if ( m_funcLogHandler != nullptr )
@@ -177,7 +163,7 @@ namespace XASIO
 			}
 			return;
 		}
-		session->getSocket()->bind( udp::endpoint( udp::v4(), port ), err );
+		m_ptrSession->getSocket()->bind( udp::endpoint( udp::v4(), port ), err );
 		if ( err ) 
 		{
 			if ( m_funcLogHandler != nullptr )
@@ -187,7 +173,22 @@ namespace XASIO
 		}
 		else if ( m_funcAcceptHandler != nullptr ) 
 		{
-			m_funcAcceptHandler( session );
+			m_funcAcceptHandler( m_ptrSession );
+		}
+	}
+
+	void XAsioUDPClient::onConnectCallback( UdpSessionPtr session, const boost::system::error_code& err )
+	{
+		if ( err )
+		{
+			if ( m_funcLogHandler != nullptr )
+			{
+				m_funcLogHandler( err.message() );
+			}
+		}
+		else if ( m_funcConnectHandler != nullptr )
+		{
+			m_funcConnectHandler( session );
 		}
 	}
 }

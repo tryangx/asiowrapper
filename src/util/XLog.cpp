@@ -9,16 +9,6 @@ namespace XASIO
 	/**
 	* Êä³ö×Ö·û´®
 	*/
-	char* outputString( const char* pszFormat, ... )
-	{
-		static char text[MAX_LOG_BUFFER];
-		va_list args;
-		va_start(args, pszFormat);
-		sprintf_s( text, sizeof(text), pszFormat, args);
-		va_end(args);
-		return text;
-	}
-
 	XLogger::XLogger() : m_pLogFile( NULL ), m_bufferIndex( 0 ), m_bInit( false ) {}
 
 	XLogger::~XLogger() { closeLogFile(); }

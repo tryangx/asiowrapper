@@ -18,18 +18,32 @@ namespace XASIO
 	public:
 		static ServerSessionPtr	create( TcpSessionPtr ptr );
 		
-		static void setLog( std::function<void( std::string& )>& handler );
-		static void disableLog();
-
-		static size_t getRecvSize();
+		static void		setLog( std::function<void( std::string& )>& handler );
+		static void		disableLog();
+		/**
+		 * 得到接收到字节数
+		 */
+		static size_t	getRecvSize();
 
 	public:
 		XServerSession();
 		XServerSession( TcpSessionPtr ptr );
 
+		/**
+		 * 初始化
+		 * @param ptr 指定会话的对象
+		 */
 		void		init( TcpSessionPtr ptr = nullptr );
 
+		/**
+		 * 是否已启动
+		 */
 		bool		isStarted();
+
+		/**
+		 * 是否已停止
+		 */
+		bool		isStoped();
 
 		/**
 		 * 发送
@@ -41,6 +55,9 @@ namespace XASIO
 		 */
 		void		close();
 
+		/**
+		 * 测试发送
+		 */
 		void		testSend();
 		void		sendThread();
 
@@ -52,13 +69,14 @@ namespace XASIO
 
 		void			onLog( std::string& err );
 		void			onLogInfo( const char* pInfo );
+
 		virtual void	onClose();
 		virtual void	onRecv( XAsioBuffer buff );
 		virtual void	onRecvComplete();
 		virtual void	onWrite( size_t bytesTransferred );
 
 	protected:
-		static void	onLogHandler( std::string& err );
+		static void		onLogHandler( std::string& err );
 
 	protected:
 		static std::function<void( std::string )>	m_sfuncLogHandler;

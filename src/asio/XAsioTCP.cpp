@@ -22,6 +22,11 @@ namespace XASIO
 	
 	const TcpSocketPtr XAsioTCPSession::getSocket() const { return m_socket; }
 
+	bool XAsioTCPSession::isOpen()
+	{
+		return m_socket && m_socket->is_open();
+	}
+
 	void XAsioTCPSession::close()
 	{
 		if ( m_socket && m_socket->is_open() ) 
@@ -93,17 +98,12 @@ namespace XASIO
 		m_funcConnectHandler = nullptr;
 	}
 
-	TcpResolverPtr XAsioTCPClient::getResolver() const { return m_ptrResolver; }
-
 	void XAsioTCPClient::init()
 	{
 	}
 
 	void XAsioTCPClient::release()
 	{
-		m_funcLogHandler		= nullptr;
-		m_funcConnectHandler	= nullptr;
-		m_funcResolveHandler	= nullptr;
 	}
 
 	void XAsioTCPClient::connect( const std::string& host, uint16_t port )
@@ -113,7 +113,10 @@ namespace XASIO
 	void XAsioTCPClient::connect( const std::string& host, const std::string& protocol )
 	{
 		tcp::resolver::query query( host, protocol );
-		m_ptrResolver = TcpResolverPtr( new tcp::resolver( m_strand.get_io_service() ) );
+		if ( m_ptrResolver != nullptr )
+		{
+			m_ptrResolver = TcpResolverPtr( new tcp::resolver( m_strand.get_io_service() ) );
+		}		
 		m_ptrResolver->async_resolve( query, 
 			m_strand.wrap( boost::bind( &XAsioTCPClient::onResolve, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::iterator ) ) );
@@ -134,8 +137,10 @@ namespace XASIO
 			{
 				m_funcResolveHandler();
 			}
-			//TcpSessionPtr session( new XAsioTCPSession( m_service ) );
-			m_ptrSession = TcpSessionPtr( new XAsioTCPSession( m_service ) )->shared_from_this();
+			if ( m_ptrSession != nullptr )
+			{
+				m_ptrSession = TcpSessionPtr( new XAsioTCPSession( m_service ) )->shared_from_this();
+			}			
 			boost::asio::async_connect( *m_ptrSession->getSocket(), it, 
 				m_strand.wrap( boost::bind( &XAsioTCPClient::onConnect, 
 				shared_from_this(), m_ptrSession, boost::asio::placeholders::error ) ) );

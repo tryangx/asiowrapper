@@ -26,6 +26,11 @@ namespace XASIO
 
 	bool XServerSession::isStarted() { return m_bIsStarted; }
 
+	bool XServerSession::isStoped()
+	{
+		return !m_tcpSession || !m_tcpSession->isOpen();
+	}
+
 	void XServerSession::init( TcpSessionPtr ptr /* = nullptr */ )
 	{
 		if ( ptr )
@@ -99,11 +104,12 @@ namespace XASIO
 		if ( m_bReadHeader && m_packageHeader.m_dwSize > 0 )
 		{
 			m_tcpSession->read( m_packageHeader.m_dwSize );
+			onLogInfo( outputString( "readpackage %d", m_packageHeader.m_dwSize ) );
 		}
 		else
 		{
 			m_bReadHeader = false;
-			m_tcpSession->read( XAsioPackageHeader::getHeaderSize() );
+			m_tcpSession->read( XAsioPackageHeader::getHeaderSize() );			
 		}		
 	}
 

@@ -8,9 +8,7 @@ namespace XASIO
 	using namespace boost;
 	
 #define MAX_LOG_BUFFER		4096
-
-	char*	outputString( const char* pszFormat, ... );
-	
+		
 	class XLogger
 	{
 	public:

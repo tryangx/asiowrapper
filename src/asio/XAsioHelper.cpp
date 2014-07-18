@@ -15,6 +15,16 @@ namespace XASIO
 		return XAsioBuffer( &value[ 0 ], value.size() );
 	}
 
+	char* outputString( const char* pszFormat, ... )
+	{
+		static char text[MAX_LOG_BUFFER];
+		va_list args;
+		va_start(args, pszFormat);
+		sprintf_s( text, sizeof(text), pszFormat, args);
+		va_end(args);
+		return text;
+	}
+
 	//-----------------------------------------
 	//  ¶¨Ê±Æ÷
 	XAsioTimer::XAsioTimer( io_service& ioService ) : m_ioService( ioService )

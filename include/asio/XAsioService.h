@@ -47,6 +47,15 @@ namespace XASIO
 		XAsioService&		getIOService();
 		const XAsioService& getIOService() const;
 		
+		/**
+		 * 启动服务的初始化
+		 */
+		virtual void		init() = 0;
+		/**
+		 * 停止服务的初始化
+		 */
+		virtual void		release() = 0;
+		
 	public:
 		/**
 		 * 发生错误的响应

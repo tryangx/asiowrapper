@@ -62,18 +62,15 @@ namespace XASIO
 		template< typename HANDLER, typename OBJECT >
 		inline void		setConnectHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { setConnectHandler( std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ) ); }
 		void			setConnectHandler( const std::function< void( UdpSessionPtr ) >& eventHandler );
-		
-		const UdpResolverPtr& getResolver() const;
 
 	protected:
 		XAsioUDPClient( XAsioService& io );
 
-		virtual void	onConnect( UdpSessionPtr session, const boost::system::error_code& err );
-
-		virtual void	onResolve( const boost::system::error_code& err, udp::resolver::iterator it );
+		virtual void	onResolveCallback( const boost::system::error_code& err, udp::resolver::iterator it );
+		virtual void	onConnectCallback( UdpSessionPtr session, const boost::system::error_code& err );
 
 	protected:
-		UdpResolverPtr		m_resolver;
+		UdpResolverPtr		m_ptrResolver;
 
 		std::function< void( UdpSessionPtr ) >	m_funcConnectHandler;
 	};
@@ -99,6 +96,8 @@ namespace XASIO
 
 	protected:
 		XAsioUDPServer( XAsioService& io );
+
+		UdpSessionPtr	m_ptrSession;
 
 		std::function<void( UdpSessionPtr )>	m_funcAcceptHandler;
 	};
