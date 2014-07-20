@@ -1,3 +1,6 @@
+/**
+ * 网络服务器封装
+ */
 #pragma once
 
 #include "XAsioTCP.h"
@@ -18,12 +21,23 @@ namespace XASIO
 	public:
 		static ServerSessionPtr	create( TcpSessionPtr ptr );
 		
-		static void		setLog( std::function<void( std::string& )>& handler );
-		static void		disableLog();
 		/**
-		 * 得到接收到字节数
+		 * 静态日志控制接口
+		 */
+		static void		setLog( std::function<void( std::string& )> handler );
+		static void		disableLog();
+
+		/**
+		 * 得到所有会话接收的消息长度
 		 */
 		static size_t	getRecvSize();
+
+	protected:
+		static void		onLogHandler( std::string& err );
+
+	protected:
+		static std::function<void( std::string )>	m_sfuncLogHandler;
+		static size_t		m_sizeRecv;
 
 	public:
 		XServerSession();
@@ -62,9 +76,6 @@ namespace XASIO
 		void		sendThread();
 
 	protected:
-		/**
-		 * 主动接收
-		 */
 		void			recv();
 
 		void			onLog( std::string& err );
@@ -76,23 +87,27 @@ namespace XASIO
 		virtual void	onWrite( size_t bytesTransferred );
 
 	protected:
-		static void		onLogHandler( std::string& err );
-
-	protected:
-		static std::function<void( std::string )>	m_sfuncLogHandler;
-		static size_t		m_sizeRecv;
-
+		/**
+		 * 会话接口，用于发送消息
+		 */
 		TcpSessionPtr		m_tcpSession;
 
+		/**
+		* 读取消息相关
+		*/
 		bool				m_bIsStarted;
 		bool				m_bReadHeader;
 		XAsioPackageHeader	m_packageHeader;
 		
+		/**
+		 * 发送测试用
+		 */
 		boost::thread		m_sendThread;
 
-		friend				XServer;
+		//friend				XServer;
 	};
 
+	//  服务器
 	class XServer : public XAsioPool<XServerSession>
 	{
 	public:
@@ -141,6 +156,9 @@ namespace XASIO
 		 */
 		void		sendToIdList( XAsioBuffer& buff, std::vector<unsigned int>& v );
 
+		/**
+		 * 测试发送
+		 */
 		void		testSend();
 
 	public:
@@ -148,11 +166,6 @@ namespace XASIO
 		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
 		
 	protected:
-		virtual void init();
-		virtual void release();
-		/**
-		 * 获取有效的ID
-		 */
 		unsigned int	queryValidId();
 
 		void		onStartServer();
@@ -163,20 +176,32 @@ namespace XASIO
 		void		onLogInfo( const char* pInfo );
 
 	protected:
+		/**
+		 * asio服务对象
+		 */
 		XAsioService&					m_service;
 
+		/**
+		 * 网络接口，用于服务器处理
+		 */
 		TcpServerPtr					m_ptrTCPServer;
 
+		/**
+		 * 连到到服务器会话数据
+		 */
 		typedef std::tr1::unordered_map<size_t, ServerSessionPtr>	MAPSERVERSESSIONPTR;
 		MAPSERVERSESSIONPTR				m_mapSession;
 		unsigned int					m_iAllocateId;
 
 		boost::mutex					m_mutex;
-		//config
+
+		//侦听线程数量
 		int								m_iAcceptThreadNum;
-		//address info
+
+		//使用端口
 		int								m_iPort;
-		//status
+
+		//是否启动
 		bool							m_bIsStarted;
 
 		std::function<void( std::string& )>			m_funcLogHandler;

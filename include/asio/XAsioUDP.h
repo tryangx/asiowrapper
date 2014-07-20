@@ -25,6 +25,7 @@ namespace XASIO
 		static UdpSessionPtr	create( XAsioService& io );
 
 	public:
+		XAsioUDPSession( XAsioService& service );
 		~XAsioUDPSession();
 
 		virtual void		init();
@@ -37,12 +38,7 @@ namespace XASIO
 		const UdpSocketPtr&	getSocket() const;
 
 	protected:
-		XAsioUDPSession( XAsioService& service );
-
 		UdpSocketPtr		m_socket;
-
-		friend class		XAsioUDPClient;
-		friend class		XAsioUDPServer;
 	};
 	
 	class XAsioUDPClient : public XAsioClientInterface, public boost::enable_shared_from_this<XAsioUDPClient>

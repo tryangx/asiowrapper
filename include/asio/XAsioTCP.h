@@ -32,6 +32,7 @@ namespace XASIO
 		static TcpSessionPtr	create( XAsioService& io );
 
 	public:
+		XAsioTCPSession( XAsioService& io );
 		~XAsioTCPSession();
 
 		const TcpSocketPtr	getSocket() const;
@@ -59,8 +60,6 @@ namespace XASIO
 		virtual void	write( const XAsioBuffer& buffer );
 			
 	protected:
-		XAsioTCPSession( XAsioService& io );
-
 		/**
 		 * 响应关闭的处理
 		 */
@@ -68,9 +67,6 @@ namespace XASIO
 
 	protected:
 		TcpSocketPtr					m_socket;
-
-		friend class					XAsioTCPClient;
-		friend class					XAsioTCPServer;
 	};
 
 	//-----------------------
