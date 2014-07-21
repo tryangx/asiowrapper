@@ -32,6 +32,7 @@ namespace XASIO
 		static TcpSessionPtr	create( XAsioService& io );
 
 	public:
+		XAsioTCPSession( XAsioService& io );
 		~XAsioTCPSession();
 
 		const TcpSocketPtr	getSocket() const;
@@ -59,18 +60,13 @@ namespace XASIO
 		virtual void	write( const XAsioBuffer& buffer );
 			
 	protected:
-		XAsioTCPSession( XAsioService& io );
-
 		/**
 		 * 响应关闭的处理
 		 */
-		virtual void	onClose( const boost::system::error_code& err );
+		virtual void	onCloseCallback( const boost::system::error_code& err );
 
 	protected:
 		TcpSocketPtr					m_socket;
-
-		friend class					XAsioTCPClient;
-		friend class					XAsioTCPServer;
 	};
 
 	//-----------------------
@@ -103,12 +99,12 @@ namespace XASIO
 		/**
 		 * 搜索到连接的响应
 		 */
-		virtual void	onResolve( const boost::system::error_code& err, boost::asio::ip::tcp::resolver::iterator it );
+		virtual void	onResolveCallback( const boost::system::error_code& err, boost::asio::ip::tcp::resolver::iterator it );
 		
 		/**
 		 * 连接时的响应
 		 */
-		virtual void	onConnect( TcpSessionPtr session, const boost::system::error_code& err );
+		virtual void	onConnectCallback( TcpSessionPtr session, const boost::system::error_code& err );
 				
 	protected:
 		TcpResolverPtr							m_ptrResolver;
@@ -166,7 +162,7 @@ namespace XASIO
 		/**
 		 * 响应侦听的连接
 		 */
-		void			onAccept( TcpSessionPtr session, const boost::system::error_code& err );
+		void			onAcceptCallback( TcpSessionPtr session, const boost::system::error_code& err );
 
 	protected:
 		TcpAcceptorPtr							m_acceptor;

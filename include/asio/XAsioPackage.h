@@ -15,8 +15,7 @@ namespace XASIO
 #endif
 
 	//------------------------------
-	// 临时缓存
-	
+	// 临时缓存	
 	class XAsioBuffer 
 	{
 	private:
@@ -54,6 +53,8 @@ namespace XASIO
 	std::string	bufferToString( const XAsioBuffer& buffer );
 	XAsioBuffer	stringToBuffer( std::string& value );
 
+	//-------------------------------------------
+	//  包头
 	class XAsioPackageHeader
 	{
 	public:
@@ -87,6 +88,8 @@ namespace XASIO
 		unsigned long	m_dwType;
 	};
 
+	//------------------------------
+	// 包
 	class XAsioPackage
 	{
 	public:
@@ -103,6 +106,8 @@ namespace XASIO
 		XAsioPackageHeader*	m_pHeader;
 	};
 
+	//------------------------------
+	// 用于发送的包
 	class XAsioSendPackage : public XAsioPackage
 	{
 	public:
@@ -181,6 +186,8 @@ namespace XASIO
 		char*		m_pMsgBuf;
 	};
 	
+	//------------------------------
+	// 用于接收的包
 	class XAsioRecvPackage : public XAsioPackage
 	{
 	public:

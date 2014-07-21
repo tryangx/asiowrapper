@@ -35,7 +35,7 @@ namespace XASIO
 	{
 		m_bufferSize = bufferSize;
 		m_socket->async_receive( m_streamResponse.prepare( bufferSize ),
-			boost::bind( &XAsioUDPSession::onRead, shared_from_this(), boost::asio::placeholders::error, 
+			boost::bind( &XAsioUDPSession::onReadCallback, shared_from_this(), boost::asio::placeholders::error, 
 			boost::asio::placeholders::bytes_transferred ) );
 	}
 	void XAsioUDPSession::write( const XAsioBuffer& buffer )
@@ -43,7 +43,7 @@ namespace XASIO
 		std::ostream stream( &m_streamRequest );
 		stream.write( (const char*)buffer.getData(), buffer.getDataSize() );
 		m_socket->async_send( m_streamRequest.data(), 
-			boost::bind( &XAsioUDPSession::onWrite, shared_from_this(), boost::asio::placeholders::error,
+			boost::bind( &XAsioUDPSession::onWriteCallback, shared_from_this(), boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred ) );
 		m_streamRequest.consume( m_streamRequest.size() );
 	}

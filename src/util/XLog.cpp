@@ -143,7 +143,7 @@ namespace XASIO
 		tm gmt;
 		localtime_s( &gmt, &tt );
 		char output[256];
-		sprintf_s( output, 256, "\n[%d-%d-%d %d:%d:%d]", gmt.tm_year + 1900, gmt.tm_mon + 1, gmt.tm_mday, gmt.tm_hour, gmt.tm_min, gmt.tm_sec );
+		sprintf_s( output, 256, "\r\n[%d-%d-%d %d:%d:%d]", gmt.tm_year + 1900, gmt.tm_mon + 1, gmt.tm_mday, gmt.tm_hour, gmt.tm_min, gmt.tm_sec );
 		writeLog( output, immediate );
 	}
 

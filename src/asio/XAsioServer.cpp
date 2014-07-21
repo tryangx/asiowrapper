@@ -11,14 +11,12 @@ namespace XASIO
 	std::function<void( std::string )>	XServerSession::m_sfuncLogHandler = nullptr;
 	size_t XServerSession::m_sizeRecv = 0;
 
-	ServerSessionPtr XServerSession::create( TcpSessionPtr ptr )
-	{
-		return ServerSessionPtr( new XServerSession( ptr ) )->shared_from_this();
-	}
+	ServerSessionPtr XServerSession::create( TcpSessionPtr ptr ) { return ServerSessionPtr( new XServerSession( ptr ) )->shared_from_this(); }
 
-	void XServerSession::setLog( std::function<void( std::string& )>& handler ) { m_sfuncLogHandler = handler; }	
+	void XServerSession::setLog( std::function<void( std::string& )> handler ) { m_sfuncLogHandler = handler; }	
 	void XServerSession::disableLog() { m_sfuncLogHandler = nullptr; }
 	void XServerSession::onLogHandler( std::string& err ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( err ); } }
+	
 	size_t XServerSession::getRecvSize() { return m_sizeRecv; }
 	
 	XServerSession::XServerSession() : m_tcpSession( nullptr ), m_bIsStarted( false ), m_bReadHeader( false ) {}
@@ -26,10 +24,7 @@ namespace XASIO
 
 	bool XServerSession::isStarted() { return m_bIsStarted; }
 
-	bool XServerSession::isStoped()
-	{
-		return !m_tcpSession || !m_tcpSession->isOpen();
-	}
+	bool XServerSession::isStoped() { return !m_tcpSession || !m_tcpSession->isOpen(); }
 
 	void XServerSession::init( TcpSessionPtr ptr /* = nullptr */ )
 	{
@@ -63,42 +58,7 @@ namespace XASIO
 		}
 		m_sendThread.interrupt();
 	}
-
-	void XServerSession::sendThread()
-	{
-		try
-		{
-			while( 1 )
-			{
-				boost::this_thread::interruption_point();
-
-				XAsioPackage p;
-				p.i = 10;
-				sprintf_s( p.info, sizeof(p.info), "from server" );
-
-				XAsioPackageHeader header;
-				header.m_dwSize = sizeof(p);
-
-				XAsioBuffer buff;
-				buff.copyFrom( &header, sizeof(header) );
-
-				send( buff );
-				buff.copyFrom( &p, sizeof(p) );
-				send( buff );
-
-				int millseconds = rand() % 3000 + 2000;
-				this_thread::sleep( get_system_time() + posix_time::milliseconds( millseconds ) );
-			}
-		}
-		catch(boost::thread_interrupted &)
-		{
-		}
-	}
-	void XServerSession::testSend()
-	{
-		boost::thread( boost::bind( &XServerSession::sendThread, this ) );
-	}
-
+	
 	void XServerSession::recv()
 	{
 		if ( m_bReadHeader && m_packageHeader.m_dwSize > 0 )
@@ -136,7 +96,7 @@ namespace XASIO
 
 	void XServerSession::onRecvComplete()
 	{
-		onLogInfo( "complete" );
+		//onLogInfo( "complete" );
 	}
 
 	void XServerSession::onWrite( size_t bytesTransferred )
@@ -159,8 +119,45 @@ namespace XASIO
 		onLog( std::string( pInfo ) );
 	}
 
+	void XServerSession::sendThread()
+	{
+		try
+		{
+			while( 1 )
+			{
+				boost::this_thread::interruption_point();
+
+				XAsioPackage p;
+				p.i = 10;
+				sprintf_s( p.info, sizeof(p.info), "from server" );
+
+				XAsioPackageHeader header;
+				header.m_dwSize = sizeof(p);
+
+				XAsioBuffer buff;
+				buff.copyFrom( &header, sizeof(header) );
+
+				send( buff );
+				buff.copyFrom( &p, sizeof(p) );
+				send( buff );
+
+				int millseconds = rand() % 3000 + 2000;
+				this_thread::sleep( get_system_time() + posix_time::milliseconds( millseconds ) );
+			}
+		}
+		catch(boost::thread_interrupted &)
+		{
+		}
+	}
+	void XServerSession::testSend()
+	{
+		return;
+		boost::thread( boost::bind( &XServerSession::sendThread, this ) );
+	}
+
 	//---------------------------
 	// ·þÎñ
+
 	XServer::XServer( XAsioService& service ) 
 		: XAsioPool( service ), m_service( service ),
 		m_iAllocateId( 1 ), m_bIsStarted( false ), m_iPort( DEFAULT_XASIO_PORT ),
@@ -187,10 +184,7 @@ namespace XASIO
 	void XServer::setAcceptThreadNum( int threadNum ) { m_iAcceptThreadNum = threadNum; }
 
 	unsigned int XServer::queryValidId() { return m_iAllocateId++; }
-
-	void XServer::init() {}
-	void XServer::release() {}
-
+	
 	void XServer::startServer()
 	{
 		if ( m_bIsStarted )
@@ -209,8 +203,7 @@ namespace XASIO
 		
 		m_ptrTCPServer->startAccept( m_iAcceptThreadNum, m_iPort );
 
-		std::function<void(std::string&)> handler = std::bind( &XServer::onLog, this, std::placeholders::_1 );
-		XServerSession::setLog( handler );
+		XServerSession::setLog( std::bind( &XServer::onLog, this, std::placeholders::_1 ) );
 
 		onLogInfo( "start server" );
 	}

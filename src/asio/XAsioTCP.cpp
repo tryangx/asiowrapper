@@ -34,26 +34,28 @@ namespace XASIO
 			boost::system::error_code err;
 			m_socket->shutdown( tcp::socket::shutdown_both, err );
 			m_socket->close( err );
-			onClose( err );
+			onCloseCallback( err );			
 		}
+		bool b = m_socket->is_open();
+		return;
 	}
 
 	void XAsioTCPSession::read()
 	{
 		boost::asio::async_read( *m_socket, m_streamResponse, boost::asio::transfer_at_least( 1 ),
-			boost::bind( &XAsioTCPSession::onRead, shared_from_this(), 
+			boost::bind( &XAsioTCPSession::onReadCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) );
 	}
 	void XAsioTCPSession::read( const std::string& delim )
 	{
 		boost::asio::async_read_until( *m_socket, m_streamResponse, delim, 
-			m_strand.wrap( boost::bind( &XAsioTCPSession::onRead, shared_from_this(), 
+			m_strand.wrap( boost::bind( &XAsioTCPSession::onReadCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
 	}
 	void XAsioTCPSession::read( size_t bufferSize )
 	{
 		m_socket->async_read_some( m_streamResponse.prepare( bufferSize ), 
-			m_strand.wrap( boost::bind( &XAsioTCPSession::onRead, shared_from_this(), 
+			m_strand.wrap( boost::bind( &XAsioTCPSession::onReadCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
 	}
 	void XAsioTCPSession::write( const XAsioBuffer& buffer )
@@ -61,12 +63,12 @@ namespace XASIO
 		std::ostream stream( &m_streamRequest );
 		stream.write( (const char*)buffer.getData(), buffer.getDataSize() );
 		boost::asio::async_write( *m_socket, m_streamRequest, 
-			m_strand.wrap( boost::bind( &XAsioTCPSession::onWrite, shared_from_this(), 
+			m_strand.wrap( boost::bind( &XAsioTCPSession::onWriteCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
 		m_streamRequest.consume( m_streamRequest.size() );
 	}
 
-	void XAsioTCPSession::onClose( const boost::system::error_code& err )
+	void XAsioTCPSession::onCloseCallback( const boost::system::error_code& err )
 	{
 		if ( err ) 
 		{
@@ -113,16 +115,16 @@ namespace XASIO
 	void XAsioTCPClient::connect( const std::string& host, const std::string& protocol )
 	{
 		tcp::resolver::query query( host, protocol );
-		if ( m_ptrResolver != nullptr )
+		if ( m_ptrResolver == nullptr )
 		{
 			m_ptrResolver = TcpResolverPtr( new tcp::resolver( m_strand.get_io_service() ) );
 		}		
 		m_ptrResolver->async_resolve( query, 
-			m_strand.wrap( boost::bind( &XAsioTCPClient::onResolve, shared_from_this(), 
+			m_strand.wrap( boost::bind( &XAsioTCPClient::onResolveCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::iterator ) ) );
 	}
 
-	void XAsioTCPClient::onResolve( const boost::system::error_code& err, boost::asio::ip::tcp::resolver::iterator it )
+	void XAsioTCPClient::onResolveCallback( const boost::system::error_code& err, boost::asio::ip::tcp::resolver::iterator it )
 	{
 		if ( err ) 
 		{
@@ -137,17 +139,17 @@ namespace XASIO
 			{
 				m_funcResolveHandler();
 			}
-			if ( m_ptrSession != nullptr )
+			if ( m_ptrSession == nullptr )
 			{
 				m_ptrSession = TcpSessionPtr( new XAsioTCPSession( m_service ) )->shared_from_this();
 			}			
 			boost::asio::async_connect( *m_ptrSession->getSocket(), it, 
-				m_strand.wrap( boost::bind( &XAsioTCPClient::onConnect, 
+				m_strand.wrap( boost::bind( &XAsioTCPClient::onConnectCallback, 
 				shared_from_this(), m_ptrSession, boost::asio::placeholders::error ) ) );
 		}
 	}
 
-	void XAsioTCPClient::onConnect( TcpSessionPtr session, const boost::system::error_code& err )
+	void XAsioTCPClient::onConnectCallback( TcpSessionPtr session, const boost::system::error_code& err )
 	{
 		if ( err ) 
 		{
@@ -212,7 +214,7 @@ namespace XASIO
 	{
 		TcpSessionPtr session( new XAsioTCPSession( m_service ) );
 		m_acceptor->async_accept( *session->getSocket(), 
-			m_strand.wrap( boost::bind( &XAsioTCPServer::onAccept, shared_from_this(), 
+			m_strand.wrap( boost::bind( &XAsioTCPServer::onAcceptCallback, shared_from_this(), 
 			session, boost::asio::placeholders::error ) ));
 	}
 
@@ -237,7 +239,7 @@ namespace XASIO
 		}
 	}
 
-	void XAsioTCPServer::onAccept( TcpSessionPtr session, const boost::system::error_code& err )
+	void XAsioTCPServer::onAcceptCallback( TcpSessionPtr session, const boost::system::error_code& err )
 	{
 		if ( err )
 		{

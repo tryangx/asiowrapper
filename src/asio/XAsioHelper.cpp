@@ -3,7 +3,20 @@
 namespace XASIO
 {
 #define MAX_DEBUG_STRING_LENGTH			2048
-	
+
+#define MAX_LOG_BUFFER		4096
+
+	char* outputString( const char* pszFormat, ... )
+	{
+		static char text[MAX_LOG_BUFFER];
+		memset( text, 0, MAX_LOG_BUFFER );
+		va_list args;
+		va_start( args, pszFormat );
+		vsprintf_s( text, sizeof(text), pszFormat, args );
+		va_end( args );
+		return text;
+	}
+
 	//----------------------
 	std::string bufferToString( const XAsioBuffer& buffer )
 	{
@@ -13,16 +26,6 @@ namespace XASIO
 	XAsioBuffer stringToBuffer( std::string& value )
 	{
 		return XAsioBuffer( &value[ 0 ], value.size() );
-	}
-
-	char* outputString( const char* pszFormat, ... )
-	{
-		static char text[MAX_LOG_BUFFER];
-		va_list args;
-		va_start(args, pszFormat);
-		sprintf_s( text, sizeof(text), pszFormat, args);
-		va_end(args);
-		return text;
 	}
 
 	//-----------------------------------------

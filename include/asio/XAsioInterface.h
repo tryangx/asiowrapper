@@ -60,12 +60,12 @@ namespace XASIO
 		/**
 		 * 收到数据的响应
 		 */
-		virtual void	onRead( const boost::system::error_code& err, size_t bytesTransferred );
+		virtual void	onReadCallback( const boost::system::error_code& err, size_t bytesTransferred );
 
 		/**
 		 * 发送数据的响应
 		 */
-		virtual void	onWrite( const boost::system::error_code& err, size_t bytesTransferred );
+		virtual void	onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred );
 
 	protected:
 		XAsioService&						m_service;

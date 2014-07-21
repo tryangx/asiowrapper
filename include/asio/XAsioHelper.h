@@ -8,4 +8,7 @@
 #include "XAsioPackage.h"
 #include "XAsioPool.h"
 
-char*	outputString( const char* pszFormat, ... );
+namespace XASIO
+{
+	char*	outputString( const char* pszFormat, ... );
+}
