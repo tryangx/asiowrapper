@@ -34,9 +34,7 @@ namespace XASIO
 			boost::system::error_code err;
 			m_socket->shutdown( tcp::socket::shutdown_both, err );
 			m_socket->close( err );
-			onCloseCallback( err );			
 		}
-		bool b = m_socket->is_open();
 		return;
 	}
 
@@ -77,7 +75,7 @@ namespace XASIO
 				m_funcLogHandler( err.message() );
 			}
 		}
-		else if ( m_funcCloseHandler != nullptr )
+		if ( m_funcCloseHandler != nullptr )
 		{
 			m_funcCloseHandler( getId() );
 		}
@@ -124,6 +122,11 @@ namespace XASIO
 			boost::asio::placeholders::error, boost::asio::placeholders::iterator ) ) );
 	}
 
+	TcpSessionPtr XAsioTCPClient::createTCPSession()
+	{
+		return TcpSessionPtr( new XAsioTCPSession( m_service ) );
+	}
+
 	void XAsioTCPClient::onResolveCallback( const boost::system::error_code& err, boost::asio::ip::tcp::resolver::iterator it )
 	{
 		if ( err ) 
@@ -141,8 +144,8 @@ namespace XASIO
 			}
 			if ( m_ptrSession == nullptr )
 			{
-				m_ptrSession = TcpSessionPtr( new XAsioTCPSession( m_service ) )->shared_from_this();
-			}			
+				m_ptrSession = createTCPSession();
+			}
 			boost::asio::async_connect( *m_ptrSession->getSocket(), it, 
 				m_strand.wrap( boost::bind( &XAsioTCPClient::onConnectCallback, 
 				shared_from_this(), m_ptrSession, boost::asio::placeholders::error ) ) );
@@ -153,9 +156,17 @@ namespace XASIO
 	{
 		if ( err ) 
 		{
+			if ( err.value() == 10061 )
+			{
+				//to reconnect
+			}
 			if ( m_funcLogHandler != nullptr )
 			{
 				m_funcLogHandler( err.message() );
+			}
+			if ( m_funcConnectHandler != nullptr ) 
+			{
+				m_funcConnectHandler( nullptr );
 			}
 		}
 		else 
@@ -200,10 +211,18 @@ namespace XASIO
 	void XAsioTCPServer::release()
 	{
 	}
+	
+	TcpSessionPtr XAsioTCPServer::createTCPSession()
+	{
+		return TcpSessionPtr( new XAsioTCPSession( m_service ) );
+	}
 
 	void XAsioTCPServer::startAccept( int threadNum, uint16_t port )
 	{
-		m_acceptor = TcpAcceptorPtr( new tcp::acceptor( m_service, tcp::endpoint( tcp::v4(), port) ) );
+		if ( m_acceptor == nullptr )
+		{
+			m_acceptor = TcpAcceptorPtr( new tcp::acceptor( m_service, tcp::endpoint( tcp::v4(), port) ) );
+		}
 		for ( int i = 0; i < threadNum; i++ )
 		{
 			startAccept();
@@ -212,7 +231,7 @@ namespace XASIO
 
 	void XAsioTCPServer::startAccept()
 	{
-		TcpSessionPtr session( new XAsioTCPSession( m_service ) );
+		TcpSessionPtr session = createTCPSession();
 		m_acceptor->async_accept( *session->getSocket(), 
 			m_strand.wrap( boost::bind( &XAsioTCPServer::onAcceptCallback, shared_from_this(), 
 			session, boost::asio::placeholders::error ) ));

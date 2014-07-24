@@ -1,6 +1,7 @@
 #pragma once
 
 #include "XAsioInterface.h"
+#include "XAsioSession.h"
 #include "../util/XLog.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
@@ -95,6 +96,12 @@ namespace XASIO
 		
 	protected:
 		XAsioTCPClient( XAsioService& io );
+				
+		/**
+		 * 生成线程对象
+		 * 重载可用于内存池管理
+		 */
+		virtual	TcpSessionPtr	createTCPSession();
 		
 		/**
 		 * 搜索到连接的响应
@@ -140,7 +147,7 @@ namespace XASIO
 		 * 停止侦听
 		 */
 		void			stopAccept();
-
+		
 	public:
 		/**
 		 * 侦听的响应处理函数
@@ -158,6 +165,12 @@ namespace XASIO
 		
 	protected:
 		XAsioTCPServer( XAsioService& io );
+				
+		/**
+		 * 生成线程对象
+		 * 重载可用于内存池管理
+		 */
+		virtual	TcpSessionPtr	createTCPSession();
 
 		/**
 		 * 响应侦听的连接

@@ -38,6 +38,11 @@ namespace XASIO
 		 * 发送
 		 */
 		virtual void	write( const XAsioBuffer& buffer ) = 0;	
+		
+		/**
+		 * 释放,删除会话相关的回调
+		 */
+		virtual void	release();
 
 	public:
 		template< typename HANDLER, typename OBJECT >

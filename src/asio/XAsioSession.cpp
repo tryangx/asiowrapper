@@ -14,11 +14,7 @@ namespace XASIO
 
 	XAsioSessionInterface::~XAsioSessionInterface()
 	{
-		m_funcReadCompleteHandler	= nullptr;
-		m_funcReadHandler			= nullptr;
-		m_funcWriteHandler			= nullptr;
-		m_funcCloseHandler			= nullptr;
-		m_funcLogHandler			= nullptr;
+		release();
 
 		m_streamRequest.consume( m_streamRequest.size() );
 		m_streamResponse.consume( m_streamResponse.size() );
@@ -29,6 +25,15 @@ namespace XASIO
 
 	void* XAsioSessionInterface::getUserData() { return m_pUserData; }
 	void XAsioSessionInterface::setUserData( void* pData ) { m_pUserData = pData; }
+
+	void XAsioSessionInterface::release()
+	{
+		m_funcReadCompleteHandler	= nullptr;
+		m_funcReadHandler			= nullptr;
+		m_funcWriteHandler			= nullptr;
+		m_funcCloseHandler			= nullptr;
+		m_funcLogHandler			= nullptr;
+	}
 
 	void XAsioSessionInterface::onReadCallback( const boost::system::error_code& err, size_t bytesTransferred )
 	{
@@ -94,6 +99,10 @@ namespace XASIO
 			if ( m_funcLogHandler != nullptr )
 			{
 				m_funcLogHandler( err.message() );
+			}
+			if ( m_funcCloseHandler != nullptr )
+			{
+				m_funcCloseHandler( m_id );
 			}
 		}
 		else if ( m_funcWriteHandler != nullptr )

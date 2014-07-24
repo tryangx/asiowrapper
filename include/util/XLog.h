@@ -22,13 +22,14 @@ namespace XASIO
 
 		void	writeLog( const char* pLog, bool immediately );
 		void	writeLog( const char* pLog, size_t size, bool immediately );
-		void	writeHugeToFile( const char* pLog, size_t size );
+		void	writeToFileImmed( const char* pLog, size_t size );
 		void	writeTime( bool immediately );
 
 		bool	flush();
 		void	clear();		
 		
 	protected:
+		bool	isFileOpend();
 		bool	openLogFile();
 		void	closeLogFile();
 		void	writeToFile();

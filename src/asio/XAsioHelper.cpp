@@ -121,16 +121,31 @@ namespace XASIO
 
 	XAsioBuffer::stBuffInfo::~stBuffInfo()
 	{
+		release();
+	}
+
+	void XAsioBuffer::stBuffInfo::release()
+	{
 		if( _bOwnsData ) 
 		{
 			free( _pData );
-			_pData = nullptr;
 		}
+		_dataSize		= 0;
+		_allocatedSize	= 0;
+		_pData			= nullptr;
+		_bOwnsData		= false;
 	}
 		
 	XAsioBuffer::XAsioBuffer() {}
 	XAsioBuffer::XAsioBuffer( void* pBuffer, size_t size ) : m_bufData( new stBuffInfo( pBuffer, size, false ) ) {}
 	XAsioBuffer::XAsioBuffer( size_t size ) : m_bufData( new stBuffInfo( malloc( size ), size, true ) ) {}
+	XAsioBuffer::~XAsioBuffer()
+	{
+		if ( m_bufData )
+		{
+			m_bufData->release();
+		}
+	}
 
 	void* XAsioBuffer::getData() { return m_bufData->_pData; }
 	const void*	XAsioBuffer::getData() const { return m_bufData->_pData; }

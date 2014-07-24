@@ -34,6 +34,11 @@ namespace XASIO
 		return m_bInit;
 	}
 
+	bool XLogger::isFileOpend()
+	{
+		return m_bInit && m_pLogFile;
+	}
+
 	bool XLogger::openLogFile()
 	{
 		mutex::scoped_lock lock( m_mutex );
@@ -67,7 +72,7 @@ namespace XASIO
 		if( size > MAX_LOG_BUFFER || immediately )
 		{
 			lock.unlock();
-			writeHugeToFile( pLog, size);
+			writeToFileImmed( pLog, size );
 		}
 		else if( size > 0 && m_bufferIndex + size < MAX_LOG_BUFFER )
 		{
@@ -84,9 +89,13 @@ namespace XASIO
 		}
 	}
 
-	void XLogger::writeHugeToFile( const char* pLog, size_t size )
+	void XLogger::writeToFileImmed( const char* pLog, size_t size )
 	{
-		if ( flush() && openLogFile() )
+		if ( isFileOpend() )
+		{
+			flush();
+		}
+		if ( openLogFile() )
 		{
 			fwrite( pLog, 1, size, m_pLogFile );
 			closeLogFile();
@@ -95,7 +104,7 @@ namespace XASIO
 
 	bool XLogger::flush()
 	{
-		if( openLogFile() )
+		if ( openLogFile() )
 		{
 			writeToFile();
 			closeLogFile();
@@ -162,8 +171,6 @@ namespace XASIO
 		mutex::scoped_lock lock( m_mutex );
 		m_bUseHourFileName	= useHourFileName;
 		m_sOrgFileName		= pFileName;
-
-		m_log.writeLog( "start log\n", true );
 	}
 	
 	void XLogUtil::flush()

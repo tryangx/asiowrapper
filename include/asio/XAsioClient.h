@@ -82,7 +82,10 @@ namespace XASIO
 		void		sendThread();
 
 	protected:
-		void		init();
+		/**
+		 * 释放会话
+		 */
+		void		release();
 		
 		/**
 		 * 主动接收
@@ -98,6 +101,8 @@ namespace XASIO
 		void		onClose( size_t id );
 		void		onLogInfo( const char* pInfo );
 		void		onLog( std::string& err );
+		
+		void		onConnTimeoutCallback( const boost::system::error_code& ec );
 
 	protected:
 		/**
@@ -140,6 +145,7 @@ namespace XASIO
 		 */
 		bool				m_bReadHeader;
 		XAsioPackageHeader	m_packageHeader;
+		int					m_iLastSend;
 
 		/**
 		 * 发送

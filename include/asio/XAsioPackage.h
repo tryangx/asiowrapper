@@ -28,12 +28,15 @@ namespace XASIO
 			size_t		_allocatedSize;
 			size_t		_dataSize;
 			bool		_bOwnsData;
+
+			void		release();
 		};
 
 	public:
 		XAsioBuffer();
 		XAsioBuffer( void* pBuffer, size_t size );
 		XAsioBuffer( size_t size );
+		~XAsioBuffer();
 		
 		void*		getData();
 		const void*	getData() const;

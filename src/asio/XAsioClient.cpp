@@ -3,6 +3,8 @@
 
 namespace XASIO
 {
+#define CONNECT_TIMEOUT_SECOND		10
+
 	size_t XClient::m_sizeSend = 0;
 	size_t XClient::m_sizeRecv = 0;
 
@@ -23,8 +25,8 @@ namespace XASIO
 
 	XClient::~XClient()
 	{
-		m_bInit = false;
-		m_bIsConnected = false;
+		disconnect();
+		release();
 	}
 
 	TcpClientPtr XClient::getService() { return m_ptrTCPClient; }
@@ -63,32 +65,42 @@ namespace XASIO
 			onLogInfo( "Client isn't initailized" );
 			return;
 		}
-		onLogInfo( "connect" );
 		m_ptrTCPClient->setConnectHandler( &XClient::onConnect, this );
 		m_ptrTCPClient->setResolveHandler( &XClient::onResolve, this );
 		m_ptrTCPClient->setLogHandler( &XClient::onLog, this );
 		m_ptrTCPClient->connect( m_sHost, m_iPort );
 		
-		//m_connectTimer.expires_from_now( boost::posix_time::seconds( 10 ) );
-		//m_connectTimer.async_wait( boost::bind( &XClient::disconnect, this ) );
+		m_connectTimer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
 
 		m_bReadHeader = false;
 	}
 
-	void XClient::disconnect()
+	void XClient::release()
 	{
 		if ( m_ptrSession )
-		{	
-			m_ptrSession->close();
+		{
+			m_ptrSession->release();			
 		}
+		m_bIsConnected = false;
+	}
+
+	void XClient::disconnect()
+	{
+		if ( m_bIsConnected )
+		{
+			if ( m_ptrSession )
+			{	
+				m_ptrSession->close();
+			}
+			onLogInfo( "disconnect" );
+		}
+		m_connectTimer.cancel();
+
 		m_sendThread.interrupt();
-		
-		onLogInfo( "disconnect" );
 	}
 
 	void XClient::testSend()
 	{
-		return;
 		m_sendThread = boost::thread( boost::bind( &XClient::sendThread, this ) );
 	}
 
@@ -103,7 +115,7 @@ namespace XASIO
 		{
 			return;
 		}
-		if ( m_ptrSession && m_ptrSession->getSocket()->is_open() )
+		if ( m_ptrSession && m_ptrSession->isOpen() )
 		{
 			XAsioBuffer buff = stringToBuffer( content );
 			onLogInfo( outputString( "send %d", buff.getDataSize() ) );
@@ -121,6 +133,7 @@ namespace XASIO
 		{
 			//onLogInfo( outputString( "send %d", buff.getDataSize() ) );
 			m_ptrSession->write( buff );
+			m_iLastSend = buff.getDataSize();
 		}
 	}
 
@@ -128,6 +141,10 @@ namespace XASIO
 	{
 		if ( m_bReadHeader && m_packageHeader.m_dwSize > 0 )
 		{
+			if ( m_packageHeader.m_dwSize != sizeof(XAsioPackage) )
+			{
+				onLogInfo( outputString( "FATAL ERROR %d", m_packageHeader.m_dwSize ) );
+			}
 			m_ptrSession->read( m_packageHeader.m_dwSize );
 		}
 		else
@@ -142,6 +159,14 @@ namespace XASIO
 		{
 			return;
 		}
+		if ( session == nullptr )
+		{
+			onLogInfo( "cann't connec to server" );
+			disconnect();
+			return;
+		}
+		m_connectTimer.cancel();
+
 		m_bIsConnected = true;
 		
 		m_ptrSession = session;
@@ -152,7 +177,7 @@ namespace XASIO
 		m_ptrSession->setLogHandler( &XClient::onLog, this );
 
 		recv();
-		testSend();
+
 		onLogInfo( "Client is connect to server!" );
 	}
 
@@ -183,18 +208,23 @@ namespace XASIO
 
 	void XClient::onSend( size_t bytesTransferred )
 	{
+		if ( bytesTransferred != m_iLastSend )
+		{
+			onLogInfo( "sending not equal" );
+		}
 		m_sizeSend += bytesTransferred;
 		//onLogInfo( outputString( "%d sended", bytesTransferred ) );
 	}
 
 	void XClient::onResolve()
 	{
-		onLogInfo( "resolve" );
+		//onLogInfo( "resolve" );
 	}
 
 	void XClient::onClose( size_t id )
 	{
-		onLogInfo( "close" );
+		m_bIsConnected = false;
+		//onLogInfo( "close" );
 	}
 
 	void XClient::onLogInfo( const char* pInfo ) { onLog( std::string( pInfo ) ); }
@@ -205,6 +235,21 @@ namespace XASIO
 		onLogHandler( log );
 	}
 	
+	void XClient::onConnTimeoutCallback( const boost::system::error_code& err )
+	{
+		if ( !m_bIsConnected )
+		{
+			if ( err )
+			{
+				onLog( err.message() );
+			}
+			else
+			{
+				disconnect();
+			}
+		}
+	}
+
 	void XClient::sendThread()
 	{
 		try

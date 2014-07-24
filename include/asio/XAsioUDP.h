@@ -1,6 +1,7 @@
 #pragma once
 
 #include "XAsioInterface.h"
+#include "XAsioSession.h"
 
 namespace XASIO
 {

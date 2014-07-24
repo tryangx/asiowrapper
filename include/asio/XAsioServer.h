@@ -49,6 +49,8 @@ namespace XASIO
 		 */
 		void		init( TcpSessionPtr ptr = nullptr );
 
+		void		release();
+
 		/**
 		 * 是否已启动
 		 */
@@ -57,7 +59,7 @@ namespace XASIO
 		/**
 		 * 是否已停止
 		 */
-		bool		isStoped();
+		bool		isOpen();
 
 		/**
 		 * 发送
@@ -167,6 +169,8 @@ namespace XASIO
 		
 	protected:
 		unsigned int	queryValidId();
+
+		ServerSessionPtr	createSession();
 
 		void		onStartServer();
 		void		onAccept( TcpSessionPtr );
