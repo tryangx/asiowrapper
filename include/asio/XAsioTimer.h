@@ -79,7 +79,7 @@ namespace XASIO
 		void	onTimerHandler( const error_code& ec, TIMER_CTYPE& st );
 
 	protected:
-		io_service&		m_ioService;
+		io_service&		m_refIoService;
 
 		CONTAINER_TIMER	m_timerContainer;
 

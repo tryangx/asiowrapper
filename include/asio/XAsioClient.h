@@ -33,11 +33,11 @@ namespace XASIO
 		/**
 		 * 所有客户端发送消息的长度
 		 */
-		static size_t		m_sizeSend;
+		static size_t		m_staSizeSend;
 		/**
 		 * 所有客户端接收消息的长度
 		 */
-		static size_t		m_sizeRecv;
+		static size_t		m_staSizeRecv;
 
 	public:
 		XClient( XAsioService& io );
@@ -53,6 +53,8 @@ namespace XASIO
 		 */
 		unsigned int	getId() const;
 		void			setId( unsigned int id );
+
+		bool			isConnected() const;
 
 		/**
 		 * 设置地址
@@ -71,7 +73,6 @@ namespace XASIO
 		/**
 		 * 发送
 		 */
-		void		send();
 		void		send( std::string content );
 		void		send( XAsioBuffer& buff );
 
@@ -145,11 +146,10 @@ namespace XASIO
 		 */
 		bool				m_bReadHeader;
 		XAsioPackageHeader	m_packageHeader;
-		int					m_iLastSend;
 
 		/**
 		 * 发送
 		 */
-		boost::thread		m_sendThread;
+		boost::shared_ptr<boost::thread>		m_sendThread;
 	};
 }

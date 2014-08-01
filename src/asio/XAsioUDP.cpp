@@ -8,9 +8,9 @@ namespace XASIO
 		return UdpSessionPtr( new XAsioUDPSession( io ) )->shared_from_this();
 	}
 
-	XAsioUDPSession::XAsioUDPSession( XAsioService& service ) : XAsioSessionInterface( service )
+	XAsioUDPSession::XAsioUDPSession( XAsioService& service ) : XAsioSession( service )
 	{
-		m_socket = UdpSocketPtr( new udp::socket( service ) );
+		m_socket = UdpSocketPtr( new udp::socket( m_service.getIOService() ) );
 	}
 
 	XAsioUDPSession::~XAsioUDPSession()
@@ -38,7 +38,7 @@ namespace XASIO
 			boost::bind( &XAsioUDPSession::onReadCallback, shared_from_this(), boost::asio::placeholders::error, 
 			boost::asio::placeholders::bytes_transferred ) );
 	}
-	void XAsioUDPSession::write( const XAsioBuffer& buffer )
+	void XAsioUDPSession::write( XAsioBuffer& buffer )
 	{
 		std::ostream stream( &m_streamRequest );
 		stream.write( (const char*)buffer.getData(), buffer.getDataSize() );

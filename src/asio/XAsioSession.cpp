@@ -5,14 +5,14 @@ namespace XASIO
 	//-------------------------------------------
 	//	会话接口实现
 
-	XAsioSessionInterface::XAsioSessionInterface( XAsioService& service )
-		: m_service( service ), m_strand( service ), m_bufferSize( 0 ),
+	XAsioSession::XAsioSession( XAsioService& service )
+		: m_service( service ), m_strand( m_service.getIOService() ),
 		m_funcReadCompleteHandler( nullptr ), m_funcReadHandler( nullptr ), m_funcWriteHandler( nullptr ), m_funcLogHandler( nullptr ), m_funcCloseHandler( nullptr ),
-		m_id( 0 ), m_pUserData( nullptr )
+		m_sessionId( 0 ), m_bufferSize( 0 )
 	{
 	}
 
-	XAsioSessionInterface::~XAsioSessionInterface()
+	XAsioSession::~XAsioSession()
 	{
 		release();
 
@@ -20,13 +20,10 @@ namespace XASIO
 		m_streamResponse.consume( m_streamResponse.size() );
 	}
 
-	unsigned int XAsioSessionInterface::getId() const { return m_id; }
-	void XAsioSessionInterface::setId( unsigned int id ) { m_id = id; }
+	unsigned int XAsioSession::getSessionId() const { return m_sessionId; }
+	void XAsioSession::setSessionId( unsigned int id ) { m_sessionId = id; }
 
-	void* XAsioSessionInterface::getUserData() { return m_pUserData; }
-	void XAsioSessionInterface::setUserData( void* pData ) { m_pUserData = pData; }
-
-	void XAsioSessionInterface::release()
+	void XAsioSession::release()
 	{
 		m_funcReadCompleteHandler	= nullptr;
 		m_funcReadHandler			= nullptr;
@@ -35,54 +32,25 @@ namespace XASIO
 		m_funcLogHandler			= nullptr;
 	}
 
-	void XAsioSessionInterface::onReadCallback( const boost::system::error_code& err, size_t bytesTransferred )
+	void XAsioSession::onReadCallback( const boost::system::error_code& err, size_t bytesTransferred )
 	{
 		if ( err ) 
 		{
 			if ( err == boost::asio::error::eof )
 			{
-				if ( m_funcReadCompleteHandler != nullptr )
-				{
-					m_funcReadCompleteHandler();
-				}
+				ON_CALLBACK( m_funcReadCompleteHandler );				
 			}
-			if ( m_funcLogHandler != nullptr )
-			{
-				m_funcLogHandler( err.message() );
-			}
-			if ( m_funcCloseHandler != nullptr )
-			{
-				m_funcCloseHandler( m_id );
-			}
+			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
 		else
 		{
 			if ( m_funcReadHandler != NULL )
 			{
-				char* pData;
-				bool useTempBuffer = true;
-#ifdef USE_RECV_BUFFER
-				if ( bytesTransferred < MAX_PACKAGE_LEN )
-				{
-					pData = m_szReadBuffer;
-					useTempBuffer = false;
-				}
-				else
-				{
-					pData = new char[bytesTransferred + 1];
-				}				
-#else
-				pData = new char[bytesTransferred + 1];
-#endif
-				pData[bytesTransferred] = 0;
 				m_streamResponse.commit( bytesTransferred );
 				std::istream stream( &m_streamResponse );
-				stream.read( pData, bytesTransferred );
-				m_funcReadHandler( XAsioBuffer( pData, bytesTransferred ) );
-				if ( useTempBuffer )
-				{
-					delete [] pData;
-				}				
+				stream.read( m_readBuffer.data(), bytesTransferred );
+				m_funcReadHandler( XAsioBuffer( m_readBuffer.data(), bytesTransferred ) );
 			}
 			if ( m_funcReadCompleteHandler != nullptr && m_bufferSize > 0 && bytesTransferred < m_bufferSize )
 			{
@@ -92,22 +60,16 @@ namespace XASIO
 		m_streamResponse.consume( m_streamResponse.size() );
 	}
 
-	void XAsioSessionInterface::onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred )
+	void XAsioSession::onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred )
 	{
 		if ( err )
 		{
-			if ( m_funcLogHandler != nullptr )
-			{
-				m_funcLogHandler( err.message() );
-			}
-			if ( m_funcCloseHandler != nullptr )
-			{
-				m_funcCloseHandler( m_id );
-			}
+			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
-		else if ( m_funcWriteHandler != nullptr )
+		else
 		{
-			m_funcWriteHandler( bytesTransferred );
+			ON_CALLBACK_PARAM( m_funcWriteHandler, bytesTransferred );
 		}
 	}
 }

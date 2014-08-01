@@ -5,15 +5,8 @@
 namespace XASIO
 {
 	//消息最大长度
-#ifndef MAX_PACKAGE_LEN
 #define MAX_PACKAGE_LEN			4096
-#endif
-
-	//最大消息数量
-#ifndef MAX_MSG_NUM
-#define MAX_MSG_NUM				1024
-#endif
-
+	
 	//------------------------------
 	// 临时缓存	
 	class XAsioBuffer 
@@ -47,10 +40,27 @@ namespace XASIO
 				
 		void		resize( size_t newSize );
 
-		void		copyFrom( const void* pData, size_t size );
+		/**
+		 * 复制数据
+		 */
+		void		copy( const void* pData, size_t size );
+
+		/**
+		 * 复制缓存
+		 */
+		void		copy( XAsioBuffer& buffer );
+
+		/**
+		 * 获取数据所有权
+		 */
+		void		attach();
+		/**
+		 * 释放数据所有权
+		 */
+		void		detach();
 
 	private:
-		boost::shared_ptr<stBuffInfo>		m_bufData;
+		stBuffInfo	m_bufData;
 	};
 
 	std::string	bufferToString( const XAsioBuffer& buffer );
@@ -100,6 +110,10 @@ namespace XASIO
 
 	public:
 		XAsioPackage();
+
+		virtual bool	empty();
+
+		virtual void	reset();
 
 		void			parseFromBuffer( XAsioBuffer& buff );
 		

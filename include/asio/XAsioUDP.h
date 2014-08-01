@@ -20,7 +20,7 @@ namespace XASIO
 	class XAsioUDPClient;
 	class XAsioUDPServer;
 
-	class XAsioUDPSession : public XAsioSessionInterface, public boost::enable_shared_from_this<XAsioUDPSession>
+	class XAsioUDPSession : public XAsioSession, public boost::enable_shared_from_this<XAsioUDPSession>
 	{
 	public:
 		static UdpSessionPtr	create( XAsioService& io );
@@ -34,7 +34,7 @@ namespace XASIO
 
 		virtual void		read();
 		virtual void		read( size_t bufferSize );
-		virtual void		write( const XAsioBuffer& buffer );
+		virtual void		write( XAsioBuffer& buffer );
 
 		const UdpSocketPtr&	getSocket() const;
 

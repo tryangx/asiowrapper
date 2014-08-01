@@ -1,3 +1,4 @@
+/*
 #pragma once
 
 #include <boost/container/list.hpp>
@@ -65,8 +66,8 @@ namespace XASIO
 		//--------------------------------------
 		//  pending message relative
 		size_t	getPendingMsgNum( EN_BUFFER_TYPE enBufferType = SEND_BUFFER );
-		void	peekFirstPendingMsg( MSGTYPE& msg, EN_BUFFER_TYPE enBufferType = SEND_BUFFER );
-		void	popFirstPendingMsg( MSGTYPE& msg, EN_BUFFER_TYPE enBufferType = SEND_BUFFER );
+		void	peekFirstPendingMsg( XAsioPackage& msg, EN_BUFFER_TYPE enBufferType = SEND_BUFFER );
+		void	popFirstPendingMsg( XAsioPackage& msg, EN_BUFFER_TYPE enBufferType = SEND_BUFFER );
 		void	popAllPendingMsg( EN_BUFFER_TYPE enBufferType = SEND_BUFFER );
 
 	protected:
@@ -150,3 +151,4 @@ namespace XASIO
 	};
 
 } //namespace
+*/

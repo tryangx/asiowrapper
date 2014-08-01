@@ -1,15 +1,17 @@
- #include "../../include/asio/XAsioServer.h"
+#include "../../include/asio/XAsioServer.h"
+#include "../../include/asio/XAsioBase.h"
 
 namespace XASIO
 {
 #define MAX_SERVICE_THREAD_NUM		4
 
-#define MAX_ACCEPT_THREAD_NUM		2
+#define MAX_ACCEPT_THREAD_NUM		1
 
 	//---------------------------
 	// 服务会话
 	std::function<void( std::string )>	XServerSession::m_sfuncLogHandler = nullptr;
-	size_t XServerSession::m_sizeRecv = 0;
+	size_t XServerSession::m_staSizeRecv = 0;
+	size_t XServerSession::m_staSizeSend = 0;
 
 	ServerSessionPtr XServerSession::create( TcpSessionPtr ptr ) { return ServerSessionPtr( new XServerSession( ptr ) )->shared_from_this(); }
 
@@ -17,7 +19,8 @@ namespace XASIO
 	void XServerSession::disableLog() { m_sfuncLogHandler = nullptr; }
 	void XServerSession::onLogHandler( std::string& err ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( err ); } }
 	
-	size_t XServerSession::getRecvSize() { return m_sizeRecv; }
+	size_t XServerSession::getRecvSize() { return m_staSizeRecv; }
+	size_t XServerSession::getSendSize() { return m_staSizeSend; }
 	
 	XServerSession::XServerSession() : m_tcpSession( nullptr ), m_bIsStarted( false ), m_bReadHeader( false ) {}
 	XServerSession::XServerSession( TcpSessionPtr ptr ) : m_tcpSession( ptr ), m_bIsStarted( false ), m_bReadHeader( false ) {}
@@ -53,7 +56,6 @@ namespace XASIO
 		if ( m_tcpSession && m_tcpSession->isOpen() )
 		{
 			m_tcpSession->write( buff );
-			//onLogInfo( "send" );
 		}
 	}
 
@@ -63,7 +65,10 @@ namespace XASIO
 		{
 			m_tcpSession->close();
 		}
-		m_sendThread.interrupt();
+		if ( m_sendThread )
+		{
+			m_sendThread->interrupt();
+		}
 	}
 	
 	void XServerSession::recv()
@@ -102,11 +107,11 @@ namespace XASIO
 			m_packageHeader.parseFromBuffer( buff );
 			log += "header";
 		}
-		//onLog( log );
+		onLog( log );
 		m_bReadHeader = !m_bReadHeader;
 		recv();
 	
-		m_sizeRecv += buff.getDataSize();
+		m_staSizeRecv += buff.getDataSize();
 	}
 
 	void XServerSession::onRecvComplete()
@@ -116,6 +121,7 @@ namespace XASIO
 
 	void XServerSession::onWrite( size_t bytesTransferred )
 	{
+		m_staSizeSend += bytesTransferred;
 		//onLogInfo( "write" );
 	}
 
@@ -126,7 +132,7 @@ namespace XASIO
 
 	void XServerSession::onLog( std::string& err )
 	{
-		std::string log = outputString( "[%d]%s", m_tcpSession ? m_tcpSession->getId() : -1, err.c_str() );
+		std::string log = outputString( "[%d]%s", m_tcpSession ? m_tcpSession->getSessionId() : -1, err.c_str() );
 		onLogHandler( log );
 	}
 
@@ -151,10 +157,10 @@ namespace XASIO
 				header.m_dwSize = sizeof(p);
 
 				XAsioBuffer buff;
-				buff.copyFrom( &header, sizeof(header) );
-
+				buff.copy( &header, sizeof(header) );
 				send( buff );
-				buff.copyFrom( &p, sizeof(p) );
+
+				buff.copy( &p, sizeof(p) );
 				send( buff );
 
 				int millseconds = rand() % 3000 + 2000;
@@ -167,14 +173,17 @@ namespace XASIO
 	}
 	void XServerSession::testSend()
 	{
-		boost::thread( boost::bind( &XServerSession::sendThread, this ) );
+		if ( m_sendThread == nullptr )
+		{
+			m_sendThread = boost::shared_ptr<boost::thread>( new boost::thread( boost::bind( &XServerSession::sendThread, this ) ) );
+		}
 	}
 
 	//---------------------------
 	// 服务
 
 	XServer::XServer( XAsioService& service ) 
-		: XAsioPool( service ), m_service( service ),
+		: XAsioPool( service.getIOService() ), m_service( service ),
 		m_iAllocateId( 1 ), m_bIsStarted( false ), m_iPort( DEFAULT_XASIO_PORT ),
 		 m_iAcceptThreadNum( MAX_ACCEPT_THREAD_NUM ),
 		m_funcLogHandler( nullptr ), m_ptrTCPServer( nullptr )
@@ -194,6 +203,19 @@ namespace XASIO
 		mutex::scoped_lock lock( m_mutex );
 		MAPSERVERSESSIONPTR::iterator it = m_mapSession.find( id );
 		return it != std::end( m_mapSession ) ? it->second : nullptr;
+	}
+
+	void XServer::closeSession( unsigned int id )
+	{
+		mutex::scoped_lock lock( m_mutex );
+		MAPSERVERSESSIONPTR::iterator it = m_mapSession.find( id );
+		if ( it != std::end( m_mapSession ) )
+		{
+			ServerSessionPtr& ptr = it->second;
+			ptr->release();
+			ptr->close();			
+			m_mapSession.erase( it );
+		}
 	}
 	
 	void XServer::setAddress( int port ) { m_iPort = port; }
@@ -246,7 +268,6 @@ namespace XASIO
 
 		XServerSession::disableLog();
 		
-		lock.unlock();
 		onLogInfo( "stop server" );
 	}
 
@@ -280,16 +301,24 @@ namespace XASIO
 		}
 	}
 
+	size_t XServer::getClientCount()
+	{
+		mutex::scoped_lock lock( m_mutex );
+		return m_mapSession.size();
+	}
+
 	void XServer::testSend()
 	{
 		mutex::scoped_lock lock( m_mutex );
+		int count = 0;
 		MAPSERVERSESSIONPTR::iterator it = std::begin( m_mapSession );
 		for ( ; it != std::end( m_mapSession ); it++ )
 		{
 			ServerSessionPtr& ptr = it->second;
 			ptr->testSend();
+			count++;
 		}
-		lock.unlock();
+		onLogInfo( outputString( "%d", count ) );
 	}
 
 	ServerSessionPtr XServer::createSession()
@@ -302,12 +331,12 @@ namespace XASIO
 	{
 		mutex::scoped_lock lock( m_mutex );
 		
-		session->setId( queryValidId() );		
+		session->setSessionId( queryValidId() );		
 		session->setCloseHandler( &XServer::onSessionClose, this );
 
 		ServerSessionPtr ptr = createSession();
 		ptr->init( session );
-		m_mapSession.insert( std::make_pair( session->getId(), ptr ) );
+		m_mapSession.insert( std::make_pair( session->getSessionId(), ptr ) );
 
 		onLogInfo( outputString( "accept [ connect:%d pool:%d temp:%d ]", m_mapSession.size(), getSize(), getClosedSize() ) );
 	}
@@ -328,17 +357,10 @@ namespace XASIO
 			//releaseObject( it->second );
 			m_mapSession.erase( it );
 		}
-		//lock.unlock();
-		onLogInfo( outputString( "session close [ pool:%d temp:%d ]", getSize(), getClosedSize() ) );
+		onLogInfo( outputString( "session %d close [ pool:%d temp:%d ]", id, getSize(), getClosedSize() ) );
 	}
 
-	void XServer::onLog( std::string& err )
-	{
-		if ( m_funcLogHandler != nullptr )
-		{
-			m_funcLogHandler( err );
-		}
-	}
+	void XServer::onLog( std::string& err ) { if ( m_funcLogHandler != nullptr ) { m_funcLogHandler( err ); } }
 
 	void XServer::onLogInfo( const char* pInfo ) { onLog( std::string( pInfo ) ); }
 }

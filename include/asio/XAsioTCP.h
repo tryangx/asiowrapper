@@ -10,6 +10,20 @@ namespace XASIO
 {
 #define DEFAULT_XASIO_PORT		7777
 
+	enum EN_BUFFER_TYPE
+	{
+		SESSION_SEND_BUFFER,
+		SESSION_RECV_BUFFER,
+
+		SESSION_BUFFER_COUNT	= 2,
+		SESSION_MUTEX_COUNT		= 2,
+	};
+
+	enum EN_TIMER_ID
+	{
+		SESSION_DISPATCH_TIMERID,
+	};
+
 	using namespace boost::asio::ip;
 
 	class XAsioTCPSession;
@@ -27,7 +41,7 @@ namespace XASIO
 	
 	//----------------------
 	//	TCP连接会话
-	class XAsioTCPSession : public XAsioSessionInterface, public boost::enable_shared_from_this<XAsioTCPSession>
+	class XAsioTCPSession : public XAsioSession, public XAsioTimer, public boost::enable_shared_from_this<XAsioTCPSession>
 	{
 	public:
 		static TcpSessionPtr	create( XAsioService& io );
@@ -52,22 +66,51 @@ namespace XASIO
 		 * 读取
 		 */
 		virtual void	read();
-		virtual	void	read( const std::string& delim );
 		virtual void	read( size_t bufferSize );
 
 		/**
 		 * 发送
 		 */
-		virtual void	write( const XAsioBuffer& buffer );
+		virtual void	write( XAsioBuffer& buffer );
+
+		void			suspendSend( bool b );
+		void			suspendDispatch( bool b );
 			
 	protected:
+		/**
+		 * 处理发送队列
+		 */
+		bool			doSend();
+		/**
+		 * 处理接收队列
+		 */
+		bool			doRead();
+
+		void			sendDirectly( const XAsioBuffer& buffer );
+
+		virtual bool	onTimer( unsigned int id, const void* pUserData );
+
+		virtual void	onReadCallback( const boost::system::error_code& err, size_t bytesTransferred );
+		virtual void	onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred );
+
 		/**
 		 * 响应关闭的处理
 		 */
 		virtual void	onCloseCallback( const boost::system::error_code& err );
 
 	protected:
-		TcpSocketPtr					m_socket;
+		TcpSocketPtr			m_socket;
+		
+		typedef container::list<XAsioBuffer>	PACKAGE_CONAINER;
+		PACKAGE_CONAINER		m_buffers[SESSION_BUFFER_COUNT];
+		boost::mutex			m_mutexs[SESSION_MUTEX_COUNT];
+
+		bool					m_isSending;
+		bool					m_isSuspendSend;
+		bool					m_isSuspendDispatch;
+
+		size_t					m_sendSize;
+		size_t					m_recvSize;
 	};
 
 	//-----------------------
@@ -93,6 +136,8 @@ namespace XASIO
 	public:
 		template< typename HANDLER, typename OBJECT >
 		void			setConnectHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcConnectHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
+		template< typename HANDLER, typename OBJECT >
+		void			setReconnectHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcReconnectHandler = std::bind( eventHandler, eventHandlerObject ); }
 		
 	protected:
 		XAsioTCPClient( XAsioService& io );
@@ -118,6 +163,7 @@ namespace XASIO
 		TcpSessionPtr							m_ptrSession;
 
 		std::function<void( TcpSessionPtr )>	m_funcConnectHandler;
+		std::function<void()>					m_funcReconnectHandler;
 	};
 
 	//-----------------------

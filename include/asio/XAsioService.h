@@ -10,16 +10,17 @@
 #pragma once
 
 #include <boost/container/list.hpp>
+#include <vector>
 
 #include "XAsioBase.h"
 
 namespace XASIO
 {
+#define DEFAULT_POOL_SIZE				8
+
 //ASIO线程数量
 //用于监听，消息收发等
-#ifndef XASIO_SERVICE_THREAD_NUM
 #define XASIO_SERVICE_THREAD_NUM		8
-#endif
 	
 	class XAsioService;
 	/**
@@ -64,18 +65,45 @@ namespace XASIO
 		template< typename HANDLER, typename OBJECT >
 		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
 		
-	protected:
+	protected:	
 		XAsioService&				m_service;
 		boost::asio::strand			m_strand;
 		
-		unsigned int				m_id;
+		size_t						m_id;
 		bool						m_bIsStarted;
 
 		std::function<void( std::string& )>		m_funcLogHandler;
 	};
 
+	class XAsioServicePool
+	{
+	public:
+		explicit XAsioServicePool( size_t poolSize = DEFAULT_POOL_SIZE );
+
+	public:
+		bool	isRunning() const;
+
+		void	start();
+
+		void	stop();
+
+		void	reset();
+
+		io_service&		getIOService();
+
+	protected:
+		typedef boost::shared_ptr<asio::io_service>		IOSERVICE_PTR;
+		typedef boost::shared_ptr<io_service::work>		WORK_PTR;
+
+		bool							m_bIsStarted;
+
+		std::vector<IOSERVICE_PTR>		m_vIoServices;
+		std::vector<WORK_PTR>			m_vWorks;
+		size_t							m_index;
+	};
+
 	//ASIO服务器管理器
-	class XAsioService : public io_service
+	class XAsioService
 	{
 	public:
 		typedef XAsioInterface*					SERVICE_TYPE;
@@ -83,7 +111,7 @@ namespace XASIO
 		typedef container::list<SERVICE_TYPE>	CONTAINER_TYPE;
 
 	public:
-		XAsioService(void) : m_bIsStarted( false ) {}
+		XAsioService();
 		~XAsioService(void);
 
 	public:
@@ -93,17 +121,14 @@ namespace XASIO
 		//is service started
 		bool	isStarted() const;
 
-		//is service still running
 		bool	isRunning() const;
 
 		//------------------------------------------
 		//  manager
+		void	registerService( SERVICE_TYPE service );
 
 		//启动全部服务
 		void	startAllServices( int threadNum = XASIO_SERVICE_THREAD_NUM );
-
-		//阻塞式运行全部服务
-		void	runAllServices( int threadNum = XASIO_SERVICE_THREAD_NUM );
 		
 		//停止全部服务
 		void	stopAllServices();
@@ -130,12 +155,15 @@ namespace XASIO
 		void	removeService( SERVICE_CTYPE service );
 		void	removeService( int serviceId );
 
+		io_service&		getIOService();
+
 	public:
 		template< typename HANDLER, typename OBJECT >
 		void	setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
 
 	protected:
-		void	registerService( SERVICE_TYPE service );
+		//阻塞式运行全部服务
+		void	runAllServices( int threadNum = XASIO_SERVICE_THREAD_NUM );
 		
 		void	stopAndFree( SERVICE_TYPE service  );
 
@@ -147,21 +175,20 @@ namespace XASIO
 		void	onLog( std::string& err );
 		void	onLog( const char* pInfo );
 
-	private:		
-		void			runIOService( int threadNum );
-		size_t			runIOServiceThread( error_code& ec );
-		virtual bool	onServiceException(const std::exception& e);
+		size_t	runIOServiceThread( error_code& ec );
+		void	runIOService( int threadNum );
 				
 	protected:
 		//------------------------------------------
 		//	member
-		bool				m_bIsStarted;
 
 		CONTAINER_TYPE		m_srvContainer;
 		mutex				m_srvMutex;
 
-		std::function<void( std::string& )>			m_funcLogHandler;
+		io_service			m_ioService;
 
-		friend XAsioInterface;
+		bool				m_bIsStarted;
+
+		std::function<void( std::string& )>			m_funcLogHandler;
 	};
 }

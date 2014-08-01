@@ -31,13 +31,15 @@ namespace XASIO
 		 * 得到所有会话接收的消息长度
 		 */
 		static size_t	getRecvSize();
+		static size_t	getSendSize();
 
 	protected:
 		static void		onLogHandler( std::string& err );
 
 	protected:
 		static std::function<void( std::string )>	m_sfuncLogHandler;
-		static size_t		m_sizeRecv;
+		static size_t		m_staSizeRecv;
+		static size_t		m_staSizeSend;
 
 	public:
 		XServerSession();
@@ -104,7 +106,7 @@ namespace XASIO
 		/**
 		 * 发送测试用
 		 */
-		boost::thread		m_sendThread;
+		boost::shared_ptr<boost::thread>		m_sendThread;
 
 		//friend				XServer;
 	};
@@ -125,6 +127,8 @@ namespace XASIO
 		 * 获取会话
 		 */
 		ServerSessionPtr	getSession( unsigned int id );
+		
+		void				closeSession( unsigned int id );
 
 		/**
 		 * 设置连接地址
@@ -157,6 +161,11 @@ namespace XASIO
 		 * 发送给指定队列
 		 */
 		void		sendToIdList( XAsioBuffer& buff, std::vector<unsigned int>& v );
+
+		/**
+		 * 获取客户端数量
+		 */
+		size_t		getClientCount();
 
 		/**
 		 * 测试发送

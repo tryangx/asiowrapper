@@ -30,7 +30,7 @@ namespace XASIO
 
 	//-----------------------------------------
 	//  ¶¨Ê±Æ÷
-	XAsioTimer::XAsioTimer( io_service& ioService ) : m_ioService( ioService )
+	XAsioTimer::XAsioTimer( io_service& ioService ) : m_refIoService( ioService )
 	{
 
 	}
@@ -49,7 +49,7 @@ namespace XASIO
 		if ( it == std::end( m_timerContainer ) )
 		{
 			it = m_timerContainer.insert( st ).first;
-			it->_timer = boost::make_shared<deadline_timer>( m_ioService );
+			it->_timer = boost::make_shared<deadline_timer>( m_refIoService );
 		}
 		lock.unlock();
 
@@ -98,12 +98,9 @@ namespace XASIO
 
 	void XAsioTimer::onTimerHandler( const error_code& ec, TIMER_CTYPE& st )
 	{
-		if ( ec )
+		if ( !ec && onTimer( st._id, st._pUserData ) && stTimerInfo::TIMER_RUN == st._enStatus )
 		{
-			if ( onTimer( st._id, st._pUserData ) && stTimerInfo::TIMER_RUN == st._enStatus )
-			{
-				startTimer( st );
-			}
+			startTimer( st );
 		}
 		else
 		{
@@ -136,48 +133,56 @@ namespace XASIO
 		_bOwnsData		= false;
 	}
 		
-	XAsioBuffer::XAsioBuffer() {}
-	XAsioBuffer::XAsioBuffer( void* pBuffer, size_t size ) : m_bufData( new stBuffInfo( pBuffer, size, false ) ) {}
-	XAsioBuffer::XAsioBuffer( size_t size ) : m_bufData( new stBuffInfo( malloc( size ), size, true ) ) {}
+	XAsioBuffer::XAsioBuffer() : m_bufData( NULL, 0, false ) {}
+	XAsioBuffer::XAsioBuffer( void* pBuffer, size_t size ) : m_bufData( pBuffer, size, false ) {}
+	XAsioBuffer::XAsioBuffer( size_t size ) : m_bufData( malloc( size ), size, true ) {}
 	XAsioBuffer::~XAsioBuffer()
 	{
-		if ( m_bufData )
-		{
-			m_bufData->release();
-		}
+		m_bufData.release();
 	}
 
-	void* XAsioBuffer::getData() { return m_bufData->_pData; }
-	const void*	XAsioBuffer::getData() const { return m_bufData->_pData; }
+	void* XAsioBuffer::getData() { return m_bufData._pData; }
+	const void*	XAsioBuffer::getData() const { return m_bufData._pData; }
 
-	size_t XAsioBuffer::getAllocatedSize() const { return m_bufData->_allocatedSize; }
-	size_t XAsioBuffer::getDataSize() const { return m_bufData->_dataSize; }
-	void XAsioBuffer::setDataSize( size_t size ) { m_bufData->_dataSize = size; }
+	size_t XAsioBuffer::getAllocatedSize() const { return m_bufData._allocatedSize; }
+	size_t XAsioBuffer::getDataSize() const { return m_bufData._dataSize; }
+	void XAsioBuffer::setDataSize( size_t size ) { m_bufData._dataSize = size; }
 
 	void XAsioBuffer::resize( size_t newSize )
 	{
-		if( !m_bufData->_bOwnsData ) return;
+		if( !m_bufData._bOwnsData ) return;
 
-		m_bufData->_pData = realloc( m_bufData->_pData, newSize );
-		m_bufData->_dataSize = newSize;
-		m_bufData->_allocatedSize = newSize;
+		m_bufData._pData = realloc( m_bufData._pData, newSize );
+		m_bufData._dataSize = newSize;
+		m_bufData._allocatedSize = newSize;
 	}
 
-	void XAsioBuffer::copyFrom( const void* pData, size_t size )
+	void XAsioBuffer::detach() { m_bufData._bOwnsData = false; }
+
+	void XAsioBuffer::attach() { m_bufData._bOwnsData = true; }
+
+	void XAsioBuffer::copy( XAsioBuffer& buffer )
 	{
-		if ( m_bufData == nullptr )
+		copy( buffer.getData(), buffer.getDataSize() );
+	}
+
+	void XAsioBuffer::copy( const void* pData, size_t size )
+	{
+		if ( m_bufData._pData == NULL )
 		{
-			m_bufData = boost::shared_ptr<stBuffInfo>( new stBuffInfo( malloc( size ), size, true ) );
+			m_bufData._pData		= malloc( size );
+			m_bufData._dataSize		= size;
+			m_bufData._bOwnsData	= true;
 		}
-		if ( m_bufData->_allocatedSize < size )
+		if ( m_bufData._allocatedSize < size )
 		{
 			resize( size );
 		}
 		else
 		{
-			m_bufData->_dataSize = size;
+			m_bufData._dataSize = size;
 		}
-		memcpy( m_bufData->_pData, pData, size );
+		memcpy( m_bufData._pData, pData, size );
 	}
 	
 	XAsioPackageHeader::XAsioPackageHeader() : m_dwFlag(0), m_dwSize(0), m_dwToken(0), m_dwType(0)
@@ -187,9 +192,23 @@ namespace XASIO
 	void XAsioPackageHeader::parseFromBuffer( XAsioBuffer& buff )
 	{
 		memcpy_s( this, XAsioPackageHeader::getHeaderSize(), buff.getData(), XAsioPackageHeader::getHeaderSize() );
+		if ( m_dwSize > MAX_PACKAGE_LEN )
+		{
+			throw std::runtime_error( "out of package length" );
+		}
 	}
 
 	XAsioPackage::XAsioPackage()
+	{
+		memset( this, 0, XAsioPackage::getSize() );
+	}
+
+	bool XAsioPackage::empty()
+	{
+		return false;
+	}
+
+	void XAsioPackage::reset()
 	{
 		memset( this, 0, XAsioPackage::getSize() );
 	}

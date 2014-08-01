@@ -50,6 +50,10 @@ namespace XASIO
 #endif
 
 	//----------------------------------------------
+#define ON_CALLBACK( FUNC_PTR )						if ( FUNC_PTR != nullptr ) { FUNC_PTR(); }
+#define ON_CALLBACK_PARAM( FUNC_PTR, PARAM )		if ( FUNC_PTR != nullptr ) { FUNC_PTR( PARAM ); }
+
+	//----------------------------------------------
 	//	π≤œÌ∂‘œÛ∫Í
 #define SHARED_OBJECT(CLASS_NAME, FATHER_NAME) \
 	class CLASS_NAME : public FATHER_NAME, public boost::enable_shared_from_this<CLASS_NAME>

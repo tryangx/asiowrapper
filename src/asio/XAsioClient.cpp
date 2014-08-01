@@ -5,8 +5,8 @@ namespace XASIO
 {
 #define CONNECT_TIMEOUT_SECOND		10
 
-	size_t XClient::m_sizeSend = 0;
-	size_t XClient::m_sizeRecv = 0;
+	size_t XClient::m_staSizeSend = 0;
+	size_t XClient::m_staSizeRecv = 0;
 
 	std::function<void( std::string )>	XClient::m_sfuncLogHandler = nullptr;
 
@@ -14,12 +14,12 @@ namespace XASIO
 	void XClient::disableLog() { m_sfuncLogHandler = nullptr; }
 	void XClient::onLogHandler( std::string& err ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( err ); } }
 
-	size_t XClient::getSendSize() { return m_sizeSend; }
-	size_t XClient::getRecvSize() { return m_sizeRecv; }
+	size_t XClient::getSendSize() { return m_staSizeSend; }
+	size_t XClient::getRecvSize() { return m_staSizeRecv; }
 
-	XClient::XClient( XAsioService& io ) : m_service( io ), m_iPort( DEFAULT_XASIO_PORT ),
-		m_bInit( false ), m_bIsConnected( false ), m_id( 0 ), m_bReadHeader( false ), m_connectTimer( io ),
-		m_ptrTCPClient( nullptr ), m_ptrSession( nullptr )
+	XClient::XClient( XAsioService& io ) : m_service( io ),
+		m_iPort( DEFAULT_XASIO_PORT ), m_bInit( false ), m_bIsConnected( false ), m_id( 0 ), m_bReadHeader( false ),
+		m_connectTimer( m_service.getIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr )
 	{
 	}
 
@@ -39,6 +39,11 @@ namespace XASIO
 		{
 			m_ptrTCPClient->setId( id );
 		}
+	}
+
+	bool XClient::isConnected() const
+	{
+		return m_bIsConnected;
 	}
 
 	void XClient::setAddress( std::string host, int port )
@@ -70,7 +75,7 @@ namespace XASIO
 		m_ptrTCPClient->setLogHandler( &XClient::onLog, this );
 		m_ptrTCPClient->connect( m_sHost, m_iPort );
 		
-		m_connectTimer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
+		//m_connectTimer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
 
 		m_bReadHeader = false;
 	}
@@ -96,19 +101,20 @@ namespace XASIO
 		}
 		m_connectTimer.cancel();
 
-		m_sendThread.interrupt();
+		if ( m_sendThread )
+		{
+			m_sendThread->interrupt();
+		}		
 	}
 
 	void XClient::testSend()
 	{
-		m_sendThread = boost::thread( boost::bind( &XClient::sendThread, this ) );
+		if ( m_sendThread == nullptr )
+		{
+			m_sendThread = boost::shared_ptr<boost::thread>( new boost::thread( boost::bind( &XClient::sendThread, this ) ) );
+		}
 	}
-
-	void XClient::send()
-	{
-		//预留作为定时发送的扩展
-	}
-
+	
 	void XClient::send( std::string content )
 	{
 		if ( !m_bInit || !m_bIsConnected )
@@ -129,11 +135,9 @@ namespace XASIO
 		{
 			return;
 		}
-		if ( m_ptrSession && m_ptrSession->getSocket()->is_open() )
+		if ( m_ptrSession && m_ptrSession->isOpen() )
 		{
-			//onLogInfo( outputString( "send %d", buff.getDataSize() ) );
 			m_ptrSession->write( buff );
-			m_iLastSend = buff.getDataSize();
 		}
 	}
 
@@ -170,6 +174,7 @@ namespace XASIO
 		m_bIsConnected = true;
 		
 		m_ptrSession = session;
+		m_ptrSession->setSessionId( m_id );
 		m_ptrSession->setReadCompleteHandler( &XClient::onRecvComplete, this );
 		m_ptrSession->setReadHandler( &XClient::onRecv, this );
 		m_ptrSession->setWriteHandler( &XClient::onSend, this );
@@ -199,7 +204,7 @@ namespace XASIO
 		m_bReadHeader = !m_bReadHeader;
 		recv();
 
-		m_sizeRecv += buff.getDataSize();
+		m_staSizeRecv += buff.getDataSize();
 	}
 
 	void XClient::onRecvComplete()
@@ -208,12 +213,8 @@ namespace XASIO
 
 	void XClient::onSend( size_t bytesTransferred )
 	{
-		if ( bytesTransferred != m_iLastSend )
-		{
-			onLogInfo( "sending not equal" );
-		}
-		m_sizeSend += bytesTransferred;
-		//onLogInfo( outputString( "%d sended", bytesTransferred ) );
+		m_staSizeSend += bytesTransferred;
+//		onLogInfo( outputString( "%d sended", bytesTransferred ) );
 	}
 
 	void XClient::onResolve()
@@ -258,19 +259,25 @@ namespace XASIO
 			{
 				boost::this_thread::interruption_point();
 
-				XAsioPackage p;
-				p.i = 10;
-				sprintf_s( p.info, sizeof(p.info), "from client %d", getId() );
+				if ( m_bIsConnected )
+				{
+					int times = 1;//rand() % 1 + 1;
+					for ( int i = 0; i < times; i++ )
+					{
+						XAsioPackage p;
+						p.i = 10;
+						sprintf_s( p.info, sizeof(p.info), "from client %d", getId() );
 
-				XAsioPackageHeader header;
-				header.m_dwSize = sizeof(p);
+						XAsioPackageHeader header;
+						header.m_dwSize = sizeof(p);
 
-				XAsioBuffer buff;
-				buff.copyFrom( &header, sizeof(header) );
-				send( buff );
-				buff.copyFrom( &p, sizeof(p) );
-				send( buff );
-
+						XAsioBuffer buff;
+						buff.copy( &header, sizeof(header) );
+						send( buff );
+						buff.copy( &p, sizeof(p) );
+						send( buff );
+					}
+				}
 				int millseconds = rand() % 3000 + 2000;
 				this_thread::sleep( get_system_time() + posix_time::milliseconds( millseconds ) );
 			}

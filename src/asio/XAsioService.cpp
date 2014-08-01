@@ -15,7 +15,8 @@ namespace XASIO
 	//	接口底层实现
 
 	XAsioInterface::XAsioInterface( XAsioService& service )
-		: m_funcLogHandler( nullptr ), m_strand( service ), m_service( service ),
+		: m_funcLogHandler( nullptr ), 
+		m_service( service ), m_strand( service.getIOService() ),
 		m_bIsStarted( false ), m_id( 0 )
 	{
 		m_service.registerService( this );
@@ -27,6 +28,7 @@ namespace XASIO
 	}
 
 	bool XAsioInterface::isStarted() const { return m_bIsStarted; }
+
 	void XAsioInterface::startService() { if ( !m_bIsStarted ) { m_bIsStarted = true; init(); } }	
 	void XAsioInterface::stopService() { if ( m_bIsStarted ) { m_bIsStarted = false; release(); } }
 	
@@ -36,16 +38,86 @@ namespace XASIO
 	XAsioService& XAsioInterface::getIOService() { return m_service; }
 	const XAsioService& XAsioInterface::getIOService() const { return m_service; }
 
-	//--------------------------------
+	//-------------------------------------------
+
+	XAsioServicePool::XAsioServicePool( size_t poolSize ) : m_index( 0 ), m_bIsStarted( false )
+	{
+		if ( poolSize == 0 )
+		{
+			throw std::runtime_error( "io_service_pool size is 0 ");
+		}
+
+		for ( size_t i = 0; i < poolSize; i++ )
+		{
+			IOSERVICE_PTR io( new asio::io_service );
+			m_vIoServices.push_back( io );
+			WORK_PTR work( new io_service::work( *io ) );
+			m_vWorks.push_back( work );
+		}
+	}
+
+	void XAsioServicePool::start()
+	{
+		std::vector<boost::shared_ptr<thread> > vThread;
+		for ( size_t i = 0; i < m_vIoServices.size(); ++i)
+		{
+			boost::shared_ptr<thread> thread( new thread( boost::bind( &asio::io_service::run, m_vIoServices[i] ) ) );
+			vThread.push_back( thread );
+		}
+		for ( size_t i = 0; i < vThread.size(); i++ )
+		{
+			vThread[i]->join();
+		}
+		m_bIsStarted = true;
+	}
+	void XAsioServicePool::reset()
+	{
+		for ( size_t i = 0; i < m_vIoServices.size(); i++ )
+		{
+			m_vIoServices[i]->reset();
+		}
+	}
+	void XAsioServicePool::stop()
+	{
+		for ( size_t i = 0; i < m_vIoServices.size(); i++ )
+		{
+			m_vIoServices[i]->stop();
+		}
+		m_bIsStarted = false;
+	}
+
+	bool XAsioServicePool::isRunning() const
+	{
+		for ( size_t i = 0; i < m_vIoServices.size(); i++ )
+		{
+			if ( !m_vIoServices[i]->stopped() )
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	io_service&	XAsioServicePool::getIOService()
+	{
+		io_service& io = *m_vIoServices[m_index];
+		m_index = m_index + 1 >= m_vIoServices.size() ? 0 : m_index + 1;
+		return io;
+	}
+
+	//-------------------------------------------
+	XAsioService::XAsioService() : m_bIsStarted( false )
+	{
+	}
 
 	XAsioService::~XAsioService()
 	{
 	}
 
-	bool XAsioService::isRunning() const { return !stopped(); }
-
 	bool XAsioService::isStarted() const { return m_bIsStarted; }
 
+	bool XAsioService::isRunning() const { return !m_ioService.stopped(); }
+	
 	void XAsioService::startAllServices( int threadNum )
 	{
 		if ( !isStarted() )
@@ -63,9 +135,9 @@ namespace XASIO
 	{
 		if ( !isStarted() )
 		{
-			reset();
+			m_ioService.reset();
 			forEachAll( boost::mem_fn( &XAsioInterface::startService ) );
-			runIOService( threadNum );
+			runIOService( XASIO_SERVICE_THREAD_NUM );
 		}
 	}
 
@@ -93,7 +165,7 @@ namespace XASIO
 				this_thread::sleep( get_system_time() + posix_time::milliseconds( XASIO_SERVICE_THREAD_INTERVAL ) );
 				if ( --numLoop <= 0 )
 				{
-					stop();
+					m_ioService.stop();
 					numLoop = 0x7fffffff;
 				}
 			}
@@ -110,7 +182,13 @@ namespace XASIO
 		XASIO::forEachAll( tempCont, boost::bind(&XAsioService::stopAndFree, this, _1) );
 	}
 
-	//-------------------------------------------
+	void XAsioService::registerService( SERVICE_TYPE service )
+	{
+		assert( nullptr != service );
+
+		mutex::scoped_lock lock( m_srvMutex );
+		m_srvContainer.push_back( service );
+	}
 
 	XAsioService::SERVICE_TYPE XAsioService::getService( int serviceId )
 	{
@@ -175,41 +253,22 @@ namespace XASIO
 	void XAsioService::onLog( std::string& err )
 	{
 		mutex::scoped_lock lock( m_srvMutex );
-		if ( m_funcLogHandler != nullptr )
-		{
-			m_funcLogHandler( err );
-		}
-	}
-	void XAsioService::onLog( const char* pInfo )
-	{
-		onLog( std::string( pInfo ) );
+		ON_CALLBACK_PARAM( m_funcLogHandler, err );
 	}
 
-	//---------------------------------------
-
-	bool XAsioService::onServiceException(const std::exception& e)
+	io_service&	XAsioService::getIOService()
 	{
-		return true;
+		return m_ioService;
 	}
 
 	size_t XAsioService::runIOServiceThread( error_code& ec )
 	{
 		while (true)
 		{
-			try { return io_service::run(ec); }
-			catch ( const std::exception& e )
-			{
-				if ( !onServiceException(e) ) return 0;
-			}
+			try { return m_ioService.run(ec); }
+			catch ( const std::exception& ) {}
 		}
-	}
-
-	void XAsioService::registerService( SERVICE_TYPE service )
-	{
-		assert( nullptr != service );
-
-		mutex::scoped_lock lock( m_srvMutex );
-		m_srvContainer.push_back( service );
+		return 0;
 	}
 
 	void XAsioService::runIOService( int threadNum )
@@ -223,7 +282,7 @@ namespace XASIO
 			tg.create_thread( boost::bind( &XAsioService::runIOServiceThread, this, error_code() ) );
 		}
 		error_code ec;
-		run( ec );
+		m_ioService.run( ec );
 
 		if ( threadNum > 0 )
 		{

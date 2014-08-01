@@ -5,6 +5,7 @@
 
 #include "XAsioService.h"
 #include "XAsioHelper.h"
+#include <boost/array.hpp>
 
 namespace XASIO
 {
@@ -13,22 +14,23 @@ namespace XASIO
 	//如果接收消息超过MAX_MSG_LEN长度时，仍将临时分配内存以接收
 #define USE_RECV_BUFFER
 
+	//最大缓存消息数量
+#ifndef MAX_BUFFER_NUM
+#define MAX_BUFFER_NUM				1024
+#endif
+
 	/**
 	 * 会话接口声明
 	 */
-	class XAsioSessionInterface
+	class XAsioSession
 	{
 	public:
-		~XAsioSessionInterface();
+		~XAsioSession();
 
 		//连接的ID
-		unsigned int	getId() const;
-		void			setId( unsigned int id );
-
-		//连接的数据
-		void*			getUserData();
-		void			setUserData( void* pData );
-
+		unsigned int	getSessionId() const;
+		void			setSessionId( unsigned int id );
+		
 		/**
 		 * 接收
 		 */
@@ -37,7 +39,7 @@ namespace XASIO
 		/**
 		 * 发送
 		 */
-		virtual void	write( const XAsioBuffer& buffer ) = 0;	
+		virtual void	write( XAsioBuffer& buffer ) = 0;	
 		
 		/**
 		 * 释放,删除会话相关的回调
@@ -57,7 +59,10 @@ namespace XASIO
 		void			setCloseHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcCloseHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
 
 	protected:
-		XAsioSessionInterface( XAsioService& service );
+		XAsioSession( XAsioService& service );
+
+		void	resetState();
+		void	clearBuffers();
 
 		/**
 		 * 收到数据的响应
@@ -76,15 +81,12 @@ namespace XASIO
 		/**
 		 * 会话编号，作为键值
 		 */
-		unsigned int						m_id;
-		void*								m_pUserData;
+		unsigned int						m_sessionId;
 		
-		size_t								m_bufferSize;		
+		size_t								m_bufferSize;
 		boost::asio::streambuf				m_streamRequest;
 		boost::asio::streambuf				m_streamResponse;
-#ifdef USE_RECV_BUFFER
-		char								m_szReadBuffer[MAX_PACKAGE_LEN];
-#endif
+		boost::array<char, MAX_PACKAGE_LEN> m_readBuffer;
 
 		std::function<void()>				m_funcReadCompleteHandler;
 		std::function<void( XAsioBuffer )>	m_funcReadHandler;
