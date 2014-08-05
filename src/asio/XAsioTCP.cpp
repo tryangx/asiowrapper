@@ -149,9 +149,9 @@ namespace XASIO
 		PACKAGE_CONAINER::iterator it;
 		for ( it = std::begin( m_buffers[SESSION_RECV_BUFFER] ); it != std::end( m_buffers[SESSION_RECV_BUFFER] ); it++ )
 		{
-			XAsioBuffer& buffer = *it;
-			ON_CALLBACK_PARAM( m_funcReadHandler, buffer );
-			buffer.attach();
+			XAsioBuffer& tempBuffer = *it;
+			ON_CALLBACK_PARAM( m_funcReadHandler, tempBuffer );
+			tempBuffer.attach();
 		}
 		m_buffers[SESSION_RECV_BUFFER].clear();
 		return true;
@@ -161,10 +161,6 @@ namespace XASIO
 	{
 		if ( err ) 
 		{
-			if ( err == boost::asio::error::eof )
-			{
-				ON_CALLBACK( m_funcReadCompleteHandler );				
-			}
 			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
@@ -184,10 +180,6 @@ namespace XASIO
 				{
 					doRead();
 				}
-			}
-			if ( m_funcReadCompleteHandler != nullptr && m_bufferSize > 0 && bytesTransferred < m_bufferSize )
-			{
-				m_funcReadCompleteHandler();
 			}
 		}
 	}

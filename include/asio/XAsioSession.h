@@ -88,7 +88,6 @@ namespace XASIO
 		boost::asio::streambuf				m_streamResponse;
 		boost::array<char, MAX_PACKAGE_LEN> m_readBuffer;
 
-		std::function<void()>				m_funcReadCompleteHandler;
 		std::function<void( XAsioBuffer )>	m_funcReadHandler;
 		std::function<void( size_t )>		m_funcWriteHandler;
 		std::function<void( size_t )>		m_funcCloseHandler;

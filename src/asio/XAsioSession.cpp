@@ -7,7 +7,7 @@ namespace XASIO
 
 	XAsioSession::XAsioSession( XAsioService& service )
 		: m_service( service ), m_strand( m_service.getIOService() ),
-		m_funcReadCompleteHandler( nullptr ), m_funcReadHandler( nullptr ), m_funcWriteHandler( nullptr ), m_funcLogHandler( nullptr ), m_funcCloseHandler( nullptr ),
+		m_funcReadHandler( nullptr ), m_funcWriteHandler( nullptr ), m_funcLogHandler( nullptr ), m_funcCloseHandler( nullptr ),
 		m_sessionId( 0 ), m_bufferSize( 0 )
 	{
 	}
@@ -25,7 +25,6 @@ namespace XASIO
 
 	void XAsioSession::release()
 	{
-		m_funcReadCompleteHandler	= nullptr;
 		m_funcReadHandler			= nullptr;
 		m_funcWriteHandler			= nullptr;
 		m_funcCloseHandler			= nullptr;
@@ -36,10 +35,6 @@ namespace XASIO
 	{
 		if ( err ) 
 		{
-			if ( err == boost::asio::error::eof )
-			{
-				ON_CALLBACK( m_funcReadCompleteHandler );				
-			}
 			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
@@ -51,10 +46,6 @@ namespace XASIO
 				std::istream stream( &m_streamResponse );
 				stream.read( m_readBuffer.data(), bytesTransferred );
 				m_funcReadHandler( XAsioBuffer( m_readBuffer.data(), bytesTransferred ) );
-			}
-			if ( m_funcReadCompleteHandler != nullptr && m_bufferSize > 0 && bytesTransferred < m_bufferSize )
-			{
-				m_funcReadCompleteHandler();
 			}
 		}
 		m_streamResponse.consume( m_streamResponse.size() );

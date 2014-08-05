@@ -125,7 +125,8 @@ namespace XASIO
 	{
 		if( _bOwnsData ) 
 		{
-			free( _pData );
+			delete _pData;
+			//free( _pData );
 		}
 		_dataSize		= 0;
 		_allocatedSize	= 0;
@@ -135,7 +136,7 @@ namespace XASIO
 		
 	XAsioBuffer::XAsioBuffer() : m_bufData( NULL, 0, false ) {}
 	XAsioBuffer::XAsioBuffer( void* pBuffer, size_t size ) : m_bufData( pBuffer, size, false ) {}
-	XAsioBuffer::XAsioBuffer( size_t size ) : m_bufData( malloc( size ), size, true ) {}
+	XAsioBuffer::XAsioBuffer( size_t size ) : m_bufData( new char( size ), size, true ) {}
 	XAsioBuffer::~XAsioBuffer()
 	{
 		m_bufData.release();
@@ -168,11 +169,16 @@ namespace XASIO
 
 	void XAsioBuffer::copy( const void* pData, size_t size )
 	{
+		if ( size > MAX_PACKAGE_LEN )
+		{
+			throw std::runtime_error( "out of package length" );
+		}
 		if ( m_bufData._pData == NULL )
 		{
-			m_bufData._pData		= malloc( size );
-			m_bufData._dataSize		= size;
-			m_bufData._bOwnsData	= true;
+			m_bufData._pData			= new char[size];//malloc( size );
+			m_bufData._dataSize			= size;
+			m_bufData._allocatedSize	= size;
+			m_bufData._bOwnsData		= true;
 		}
 		if ( m_bufData._allocatedSize < size )
 		{
@@ -182,7 +188,7 @@ namespace XASIO
 		{
 			m_bufData._dataSize = size;
 		}
-		memcpy( m_bufData._pData, pData, size );
+		memcpy_s( m_bufData._pData, m_bufData._allocatedSize, pData, size );
 	}
 	
 	XAsioPackageHeader::XAsioPackageHeader() : m_dwFlag(0), m_dwSize(0), m_dwToken(0), m_dwType(0)
@@ -191,7 +197,7 @@ namespace XASIO
 
 	void XAsioPackageHeader::parseFromBuffer( XAsioBuffer& buff )
 	{
-		memcpy_s( this, XAsioPackageHeader::getHeaderSize(), buff.getData(), XAsioPackageHeader::getHeaderSize() );
+		memcpy_s( this, XAsioPackageHeader::getHeaderSize(), buff.getData(), buff.getDataSize() );
 		if ( m_dwSize > MAX_PACKAGE_LEN )
 		{
 			throw std::runtime_error( "out of package length" );

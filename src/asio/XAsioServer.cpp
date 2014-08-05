@@ -38,7 +38,6 @@ namespace XASIO
 		m_tcpSession->setLogHandler( &XServerSession::onLog, this );
 		m_tcpSession->setWriteHandler( &XServerSession::onWrite, this );
 		m_tcpSession->setReadHandler( &XServerSession::onRecv, this );
-		m_tcpSession->setReadCompleteHandler( &XServerSession::onRecvComplete, this );
 
 		recv();
 	}
@@ -114,11 +113,6 @@ namespace XASIO
 		m_staSizeRecv += buff.getDataSize();
 	}
 
-	void XServerSession::onRecvComplete()
-	{
-		//onLogInfo( "complete" );
-	}
-
 	void XServerSession::onWrite( size_t bytesTransferred )
 	{
 		m_staSizeSend += bytesTransferred;
@@ -141,6 +135,23 @@ namespace XASIO
 		onLog( std::string( pInfo ) );
 	}
 
+	void XServerSession::sendTestPackage()
+	{
+		XAsioPackage p;
+		p.i = 10;
+		sprintf_s( p.info, sizeof(p.info), "from server" );
+
+		XAsioPackageHeader header;
+		header.m_dwSize = sizeof(p);
+
+		XAsioBuffer buff1;
+		buff1.copy( &header, sizeof(header) );
+		send( buff1 );
+
+		XAsioBuffer buff2;
+		buff2.copy( &p, sizeof(p) );
+		send( buff2 );
+	}
 	void XServerSession::sendThread()
 	{
 		try
@@ -149,19 +160,7 @@ namespace XASIO
 			{
 				boost::this_thread::interruption_point();
 
-				XAsioPackage p;
-				p.i = 10;
-				sprintf_s( p.info, sizeof(p.info), "from server" );
-
-				XAsioPackageHeader header;
-				header.m_dwSize = sizeof(p);
-
-				XAsioBuffer buff;
-				buff.copy( &header, sizeof(header) );
-				send( buff );
-
-				buff.copy( &p, sizeof(p) );
-				send( buff );
+				sendTestPackage();
 
 				int millseconds = rand() % 3000 + 2000;
 				this_thread::sleep( get_system_time() + posix_time::milliseconds( millseconds ) );
@@ -318,7 +317,18 @@ namespace XASIO
 			ptr->testSend();
 			count++;
 		}
-		onLogInfo( outputString( "%d", count ) );
+		onLogInfo( outputString( "testsend %d", count ) );
+	}
+
+	void XServer::testSendDirectly()
+	{
+		mutex::scoped_lock lock( m_mutex );
+		MAPSERVERSESSIONPTR::iterator it = std::begin( m_mapSession );
+		for ( ; it != std::end( m_mapSession ); it++ )
+		{
+			ServerSessionPtr& ptr = it->second;
+			ptr->sendTestPackage();
+		}
 	}
 
 	ServerSessionPtr XServer::createSession()

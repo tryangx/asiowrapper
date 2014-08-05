@@ -78,6 +78,7 @@ namespace XASIO
 		 */
 		void		testSend();
 		void		sendThread();
+		void		sendTestPackage();
 
 	protected:
 		void			recv();
@@ -87,7 +88,6 @@ namespace XASIO
 
 		virtual void	onClose();
 		virtual void	onRecv( XAsioBuffer buff );
-		virtual void	onRecvComplete();
 		virtual void	onWrite( size_t bytesTransferred );
 
 	protected:
@@ -171,6 +171,7 @@ namespace XASIO
 		 * ≤‚ ‘∑¢ÀÕ
 		 */
 		void		testSend();
+		void		testSendDirectly();
 
 	public:
 		template< typename HANDLER, typename OBJECT >

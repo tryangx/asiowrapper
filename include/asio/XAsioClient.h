@@ -81,6 +81,7 @@ namespace XASIO
 		 */
 		void		testSend();		
 		void		sendThread();
+		void		sendTestPackage();
 
 	protected:
 		/**
@@ -96,7 +97,6 @@ namespace XASIO
 		
 		void		onConnect( TcpSessionPtr session );
 		void		onRecv( XAsioBuffer& buff );
-		void		onRecvComplete();
 		void		onSend( size_t bytesTransferred );
 		void		onResolve();
 		void		onClose( size_t id );

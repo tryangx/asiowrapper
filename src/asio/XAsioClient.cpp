@@ -175,7 +175,6 @@ namespace XASIO
 		
 		m_ptrSession = session;
 		m_ptrSession->setSessionId( m_id );
-		m_ptrSession->setReadCompleteHandler( &XClient::onRecvComplete, this );
 		m_ptrSession->setReadHandler( &XClient::onRecv, this );
 		m_ptrSession->setWriteHandler( &XClient::onSend, this );
 		m_ptrSession->setCloseHandler( &XClient::onClose, this );
@@ -205,10 +204,6 @@ namespace XASIO
 		recv();
 
 		m_staSizeRecv += buff.getDataSize();
-	}
-
-	void XClient::onRecvComplete()
-	{
 	}
 
 	void XClient::onSend( size_t bytesTransferred )
@@ -251,6 +246,29 @@ namespace XASIO
 		}
 	}
 
+	void XClient::sendTestPackage()
+	{
+		if ( m_bIsConnected )
+		{
+			int times = 1;//rand() % 1 + 1;
+			for ( int i = 0; i < times; i++ )
+			{
+				XAsioPackage p;
+				p.i = 10;
+				sprintf_s( p.info, sizeof(p.info), "from client %d", getId() );
+
+				XAsioPackageHeader header;
+				header.m_dwSize = sizeof(p);
+
+				XAsioBuffer buff;
+				buff.copy( &header, sizeof(header) );
+				send( buff );
+				buff.copy( &p, sizeof(p) );
+				send( buff );
+			}
+		}
+	}
+
 	void XClient::sendThread()
 	{
 		try
@@ -259,25 +277,8 @@ namespace XASIO
 			{
 				boost::this_thread::interruption_point();
 
-				if ( m_bIsConnected )
-				{
-					int times = 1;//rand() % 1 + 1;
-					for ( int i = 0; i < times; i++ )
-					{
-						XAsioPackage p;
-						p.i = 10;
-						sprintf_s( p.info, sizeof(p.info), "from client %d", getId() );
-
-						XAsioPackageHeader header;
-						header.m_dwSize = sizeof(p);
-
-						XAsioBuffer buff;
-						buff.copy( &header, sizeof(header) );
-						send( buff );
-						buff.copy( &p, sizeof(p) );
-						send( buff );
-					}
-				}
+				sendTestPackage();
+				
 				int millseconds = rand() % 3000 + 2000;
 				this_thread::sleep( get_system_time() + posix_time::milliseconds( millseconds ) );
 			}
