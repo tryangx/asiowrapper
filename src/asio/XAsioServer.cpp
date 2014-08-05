@@ -88,7 +88,7 @@ namespace XASIO
 		{
 			m_bReadHeader = false;
 			m_tcpSession->read( XAsioPackageHeader::getHeaderSize() );			
-		}		
+		}
 	}
 
 	void XServerSession::onRecv( XAsioBuffer& buff )

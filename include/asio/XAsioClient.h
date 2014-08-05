@@ -29,7 +29,7 @@ namespace XASIO
 		static void		onLogHandler( const char* pLog );
 				
 	protected:
-		static std::function<void( std::string )>	m_sfuncLogHandler;
+		static std::function<void( const char* )>	m_sfuncLogHandler;
 		/**
 		 * 所有客户端发送消息的长度
 		 */
@@ -83,6 +83,10 @@ namespace XASIO
 		void		sendThread();
 		void		sendTestPackage();
 		void		testEcho();
+
+	public:
+		template< typename HANDLER, typename OBJECT >
+		void		setCloseHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcCloseHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
 
 	protected:
 		/**
@@ -153,5 +157,7 @@ namespace XASIO
 		 * 发送
 		 */
 		boost::shared_ptr<boost::thread>		m_sendThread;
+
+		std::function<void( size_t )>			m_funcCloseHandler;
 	};
 }

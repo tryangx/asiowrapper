@@ -78,10 +78,12 @@ namespace XASIO
 	class XAsioServicePool
 	{
 	public:
-		explicit XAsioServicePool( size_t poolSize = DEFAULT_POOL_SIZE );
+		explicit XAsioServicePool();
 
 	public:
 		bool	isRunning() const;
+
+		void	init( size_t poolSize );
 
 		void	start();
 
@@ -95,6 +97,7 @@ namespace XASIO
 		typedef boost::shared_ptr<asio::io_service>		IOSERVICE_PTR;
 		typedef boost::shared_ptr<io_service::work>		WORK_PTR;
 
+		bool							m_bInit;
 		bool							m_bIsStarted;
 
 		std::vector<IOSERVICE_PTR>		m_vIoServices;
@@ -186,6 +189,7 @@ namespace XASIO
 		mutex				m_srvMutex;
 
 		io_service			m_ioService;
+		io_service::work	m_ioServiceWork;
 
 		bool				m_bIsStarted;
 

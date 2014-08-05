@@ -40,13 +40,22 @@ namespace XASIO
 
 	//-------------------------------------------
 
-	XAsioServicePool::XAsioServicePool( size_t poolSize ) : m_index( 0 ), m_bIsStarted( false )
+	XAsioServicePool::XAsioServicePool() : m_index( 0 ), m_bInit( false ), m_bIsStarted( false )
 	{
+	}
+
+	void XAsioServicePool::init( size_t poolSize )
+	{
+		if ( !m_bInit )
+		{
+			return;
+		}
 		if ( poolSize == 0 )
 		{
 			throw std::runtime_error( "io_service_pool size is 0 ");
+			return;
 		}
-
+		m_bInit = true;
 		for ( size_t i = 0; i < poolSize; i++ )
 		{
 			IOSERVICE_PTR io( new asio::io_service );
@@ -106,7 +115,7 @@ namespace XASIO
 	}
 
 	//-------------------------------------------
-	XAsioService::XAsioService() : m_bIsStarted( false )
+	XAsioService::XAsioService() : m_bIsStarted( false ), m_ioServiceWork( getIOService() )
 	{
 	}
 
