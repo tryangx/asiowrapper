@@ -76,6 +76,8 @@ namespace XASIO
 		void			suspendSend( bool b );
 		void			suspendDispatch( bool b );
 			
+		size_t			getSendSize() const;
+		size_t			getRecvSize() const;
 	protected:
 		/**
 		 * 处理发送队列

@@ -33,19 +33,22 @@ namespace XASIO
 
 	void XAsioUDPSession::read( size_t bufferSize )
 	{
-		m_bufferSize = bufferSize;
-		m_socket->async_receive( m_streamResponse.prepare( bufferSize ),
+		if ( bufferSize > MAX_PACKAGE_LEN )
+		{
+			throw std::runtime_error( "read size is out of buffer length");
+			return;
+		}
+		m_socket->async_receive( boost::asio::buffer( m_readBuffer, bufferSize ),
 			boost::bind( &XAsioUDPSession::onReadCallback, shared_from_this(), boost::asio::placeholders::error, 
 			boost::asio::placeholders::bytes_transferred ) );
 	}
 	void XAsioUDPSession::write( XAsioBuffer& buffer )
 	{
-		std::ostream stream( &m_streamRequest );
-		stream.write( (const char*)buffer.getData(), buffer.getDataSize() );
-		m_socket->async_send( m_streamRequest.data(), 
+		size_t size = buffer.getDataSize();
+		memcpy_s( (void*)m_sendBuffer, MAX_PACKAGE_LEN, buffer.getData(), size );
+		m_socket->async_send( boost::asio::buffer( m_sendBuffer, size ),
 			boost::bind( &XAsioUDPSession::onWriteCallback, shared_from_this(), boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred ) );
-		m_streamRequest.consume( m_streamRequest.size() );
 	}
 
 	const UdpSocketPtr& XAsioUDPSession::getSocket() const { return m_socket; }

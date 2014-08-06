@@ -8,7 +8,9 @@ namespace XASIO
 
 	char* outputString( const char* pszFormat, ... )
 	{
+		static boost::mutex	_mutex;
 		static char text[MAX_LOG_BUFFER];
+		mutex::scoped_lock lock( mutex );
 		memset( text, 0, MAX_LOG_BUFFER );
 		va_list args;
 		va_start( args, pszFormat );
@@ -125,8 +127,7 @@ namespace XASIO
 	{
 		if( _bOwnsData ) 
 		{
-			delete _pData;
-			//free( _pData );
+			free( _pData );
 		}
 		_dataSize		= 0;
 		_allocatedSize	= 0;
@@ -135,8 +136,9 @@ namespace XASIO
 	}
 		
 	XAsioBuffer::XAsioBuffer() : m_bufData( NULL, 0, false ) {}
+	XAsioBuffer::XAsioBuffer( const XAsioBuffer& buffer ) : m_bufData( buffer.m_bufData._pData, buffer.m_bufData._dataSize, false ) {}
 	XAsioBuffer::XAsioBuffer( void* pBuffer, size_t size ) : m_bufData( pBuffer, size, false ) {}
-	XAsioBuffer::XAsioBuffer( size_t size ) : m_bufData( new char( size ), size, true ) {}
+	XAsioBuffer::XAsioBuffer( size_t size ) : m_bufData( malloc( size ), size, true ) {}
 	XAsioBuffer::~XAsioBuffer()
 	{
 		m_bufData.release();
@@ -175,7 +177,7 @@ namespace XASIO
 		}
 		if ( m_bufData._pData == NULL )
 		{
-			m_bufData._pData			= new char[size];//malloc( size );
+			m_bufData._pData			= malloc( size );
 			m_bufData._dataSize			= size;
 			m_bufData._allocatedSize	= size;
 			m_bufData._bOwnsData		= true;
@@ -190,6 +192,21 @@ namespace XASIO
 		}
 		memcpy_s( m_bufData._pData, m_bufData._allocatedSize, pData, size );
 	}
+
+	void XAsioBuffer::setData( void* pData, size_t size )
+	{
+		if ( m_bufData._pData && m_bufData._bOwnsData )
+		{
+			throw std::runtime_error( "data is exist" );
+			return;
+		}
+		m_bufData._pData			= pData;
+		m_bufData._allocatedSize	= size;
+		m_bufData._dataSize			= size;
+		m_bufData._bOwnsData		= false;
+	}
+
+	//------------------------------------
 	
 	XAsioPackageHeader::XAsioPackageHeader() : m_dwFlag(0), m_dwSize(0), m_dwToken(0), m_dwType(0)
 	{
@@ -203,6 +220,8 @@ namespace XASIO
 			throw std::runtime_error( "out of package length" );
 		}
 	}
+
+	//------------------------------------
 
 	XAsioPackage::XAsioPackage()
 	{

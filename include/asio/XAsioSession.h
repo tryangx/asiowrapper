@@ -83,10 +83,8 @@ namespace XASIO
 		 */
 		unsigned int						m_sessionId;
 		
-		size_t								m_bufferSize;
-		boost::asio::streambuf				m_streamRequest;
-		boost::asio::streambuf				m_streamResponse;
-		boost::array<char, MAX_PACKAGE_LEN> m_readBuffer;
+		char								m_readBuffer[MAX_PACKAGE_LEN];
+		char								m_sendBuffer[MAX_PACKAGE_LEN];
 
 		std::function<void( XAsioBuffer )>	m_funcReadHandler;
 		std::function<void( size_t )>		m_funcWriteHandler;

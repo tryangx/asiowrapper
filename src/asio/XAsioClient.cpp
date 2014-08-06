@@ -19,7 +19,8 @@ namespace XASIO
 
 	XClient::XClient( XAsioService& io ) : m_service( io ),
 		m_iPort( DEFAULT_XASIO_PORT ), m_bInit( false ), m_bIsConnected( false ), m_id( 0 ), m_bReadHeader( false ),
-		m_connectTimer( m_service.getIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr )
+		m_connectTimer( m_service.getIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr ),
+		m_bTestEcho( false )
 	{
 	}
 
@@ -115,7 +116,7 @@ namespace XASIO
 		}
 	}
 	
-	void XClient::send( std::string content )
+	void XClient::send( std::string& content )
 	{
 		if ( !m_bInit || !m_bIsConnected )
 		{
@@ -143,18 +144,29 @@ namespace XASIO
 
 	void XClient::recv()
 	{
-		if ( m_bReadHeader && m_packageHeader.m_dwSize > 0 )
+		if ( !isConnected() )
 		{
-			if ( m_packageHeader.m_dwSize != sizeof(XAsioPackage) )
-			{
-				onLogInfo( outputString( "FATAL ERROR %d", m_packageHeader.m_dwSize ) );
-			}
-			m_ptrSession->read( m_packageHeader.m_dwSize );
+			return;
+		}
+		if ( m_bTestEcho )
+		{
+			m_ptrSession->read( XAsioPackageHeader::getHeaderSize() );
 		}
 		else
 		{
-			m_ptrSession->read( XAsioPackageHeader::getHeaderSize() );
-		}		
+			if ( m_bReadHeader && m_packageHeader.m_dwSize > 0 )
+			{
+				if ( m_packageHeader.m_dwSize != sizeof(XAsioPackage) )
+				{
+					onLogInfo( outputString( "FATAL ERROR %d", m_packageHeader.m_dwSize ) );
+				}
+				m_ptrSession->read( m_packageHeader.m_dwSize );
+			}
+			else
+			{
+				m_ptrSession->read( XAsioPackageHeader::getHeaderSize() );
+			}
+		}
 	}
 
 	void XClient::onConnect( TcpSessionPtr session )
@@ -187,29 +199,36 @@ namespace XASIO
 
 	void XClient::onRecv( XAsioBuffer& buff )
 	{
-		std::string log = "recv ";
-		if ( m_bReadHeader )
+		if ( m_bTestEcho )
 		{
-			XAsioPackage pack;
-			pack.parseFromBuffer( buff );
-			log += pack.info;
+			m_packageHeader.parseFromBuffer( buff );
+			if ( m_packageHeader.m_dwSize != 999 )
+			{
+				throw std::runtime_error( "echo msg error" );
+			}			
+			send( buff );
+			recv();
+			m_staSizeRecv += buff.getDataSize();
 		}
 		else
 		{
-			m_packageHeader.parseFromBuffer( buff );
-			log += "header";
+			if ( m_bReadHeader )
+			{
+				m_lastRecvPackage.parseFromBuffer( buff );
+			}
+			else
+			{
+				m_packageHeader.parseFromBuffer( buff );
+			}
+			m_bReadHeader = !m_bReadHeader;
+			recv();
+			m_staSizeRecv += buff.getDataSize();
 		}
-		//onLog( log );
-		m_bReadHeader = !m_bReadHeader;
-		recv();
-
-		m_staSizeRecv += buff.getDataSize();
 	}
 
 	void XClient::onSend( size_t bytesTransferred )
 	{
 		m_staSizeSend += bytesTransferred;
-//		onLogInfo( outputString( "%d sended", bytesTransferred ) );
 	}
 
 	void XClient::onResolve()
@@ -246,6 +265,26 @@ namespace XASIO
 		}
 	}
 
+	void XClient::testEcho()
+	{
+		if ( m_bTestEcho )
+		{
+			return;
+		}
+		m_bTestEcho = true;
+
+		XAsioPackageHeader header;
+		header.m_dwType = 1;
+		header.m_dwSize = 999;
+		header.m_dwToken = getSendSize();		
+		
+		recv();
+
+		XAsioBuffer buff;
+		buff.setData( &header, sizeof(header) );
+		send( buff );
+	}
+
 	void XClient::sendTestPackage()
 	{
 		if ( m_bIsConnected )
@@ -260,11 +299,13 @@ namespace XASIO
 				XAsioPackageHeader header;
 				header.m_dwSize = sizeof(p);
 
-				XAsioBuffer buff;
-				buff.copy( &header, sizeof(header) );
-				send( buff );
-				buff.copy( &p, sizeof(p) );
-				send( buff );
+				XAsioBuffer buff1;
+				buff1.copy( &header, sizeof(header) );
+				send( buff1 );
+
+				XAsioBuffer buff2;
+				buff2.copy( &p, sizeof(p) );
+				send( buff2 );
 			}
 		}
 	}

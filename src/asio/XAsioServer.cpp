@@ -92,31 +92,36 @@ namespace XASIO
 		}		
 	}
 
-	void XServerSession::onRecv( XAsioBuffer buff )
+	void XServerSession::onRecv( XAsioBuffer& buff )
 	{
-		std::string log = "recv";
 		if ( m_bReadHeader )
 		{
-			XAsioPackage p;
-			p.parseFromBuffer( buff );			
-			log += p.info;			
+			m_lastPackage.parseFromBuffer( buff );
 		}
 		else
 		{
 			m_packageHeader.parseFromBuffer( buff );
-			log += "header";
 		}
-		onLog( log );
-		m_bReadHeader = !m_bReadHeader;
-		recv();
-	
+		if ( !m_bReadHeader && m_packageHeader.m_dwType == 1 )
+		{
+			if ( m_packageHeader.m_dwSize != 999 )
+			{
+				throw std::runtime_error( "echo msg error" );
+			}			
+			send( buff );
+			recv();
+		}
+		else
+		{
+			m_bReadHeader = !m_bReadHeader;
+			recv();	
+		}		
 		m_staSizeRecv += buff.getDataSize();
 	}
 
 	void XServerSession::onWrite( size_t bytesTransferred )
 	{
 		m_staSizeSend += bytesTransferred;
-		//onLogInfo( "write" );
 	}
 
 	void XServerSession::onClose()
@@ -138,10 +143,11 @@ namespace XASIO
 	void XServerSession::sendTestPackage()
 	{
 		XAsioPackage p;
-		p.i = 10;
+		p.i = m_tcpSession->getSessionId();
 		sprintf_s( p.info, sizeof(p.info), "from server" );
 
 		XAsioPackageHeader header;
+		header.m_dwFlag = m_tcpSession->getSendSize();
 		header.m_dwSize = sizeof(p);
 
 		XAsioBuffer buff1;
@@ -149,7 +155,7 @@ namespace XASIO
 		send( buff1 );
 
 		XAsioBuffer buff2;
-		buff2.copy( &p, sizeof(p) );
+		buff2.copy( &p, header.m_dwSize );
 		send( buff2 );
 	}
 	void XServerSession::sendThread()
@@ -317,7 +323,6 @@ namespace XASIO
 			ptr->testSend();
 			count++;
 		}
-		onLogInfo( outputString( "testsend %d", count ) );
 	}
 
 	void XServer::testSendDirectly()
@@ -363,6 +368,7 @@ namespace XASIO
 		if ( it != std::end( m_mapSession ) )
 		{
 			ServerSessionPtr& ptr = it->second;
+			ptr->release();
 			ptr->close();
 			//releaseObject( it->second );
 			m_mapSession.erase( it );

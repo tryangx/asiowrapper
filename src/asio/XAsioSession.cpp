@@ -8,16 +8,13 @@ namespace XASIO
 	XAsioSession::XAsioSession( XAsioService& service )
 		: m_service( service ), m_strand( m_service.getIOService() ),
 		m_funcReadHandler( nullptr ), m_funcWriteHandler( nullptr ), m_funcLogHandler( nullptr ), m_funcCloseHandler( nullptr ),
-		m_sessionId( 0 ), m_bufferSize( 0 )
+		m_sessionId( 0 )
 	{
 	}
 
 	XAsioSession::~XAsioSession()
 	{
 		release();
-
-		m_streamRequest.consume( m_streamRequest.size() );
-		m_streamResponse.consume( m_streamResponse.size() );
 	}
 
 	unsigned int XAsioSession::getSessionId() const { return m_sessionId; }
@@ -42,13 +39,11 @@ namespace XASIO
 		{
 			if ( m_funcReadHandler != NULL )
 			{
-				m_streamResponse.commit( bytesTransferred );
-				std::istream stream( &m_streamResponse );
-				stream.read( m_readBuffer.data(), bytesTransferred );
-				m_funcReadHandler( XAsioBuffer( m_readBuffer.data(), bytesTransferred ) );
+				XAsioBuffer buffer;
+				buffer.copy( m_readBuffer, bytesTransferred );				
+				ON_CALLBACK_PARAM( m_funcReadHandler, buffer );
 			}
 		}
-		m_streamResponse.consume( m_streamResponse.size() );
 	}
 
 	void XAsioSession::onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred )

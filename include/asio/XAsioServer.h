@@ -87,7 +87,7 @@ namespace XASIO
 		void			onLogInfo( const char* pInfo );
 
 		virtual void	onClose();
-		virtual void	onRecv( XAsioBuffer buff );
+		virtual void	onRecv( XAsioBuffer& buff );
 		virtual void	onWrite( size_t bytesTransferred );
 
 	protected:
@@ -102,6 +102,7 @@ namespace XASIO
 		bool				m_bIsStarted;
 		bool				m_bReadHeader;
 		XAsioPackageHeader	m_packageHeader;
+		XAsioPackage		m_lastPackage;
 		
 		/**
 		 * ∑¢ÀÕ≤‚ ‘”√

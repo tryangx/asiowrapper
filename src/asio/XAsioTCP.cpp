@@ -54,7 +54,8 @@ namespace XASIO
 
 	void XAsioTCPSession::read()
 	{
-		boost::asio::async_read( *m_socket, boost::asio::buffer( m_readBuffer ), boost::asio::transfer_at_least( 1 ),
+		boost::asio::async_read( *m_socket, boost::asio::buffer( m_readBuffer ),
+			boost::asio::transfer_at_least( 1 ),
 			boost::bind( &XAsioTCPSession::onReadCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) );
 	}
@@ -62,7 +63,7 @@ namespace XASIO
 	{
 		if ( bufferSize > MAX_PACKAGE_LEN )
 		{
-			throw std::runtime_error( "read size is out of buffer length");
+			throw std::runtime_error( "read size is out of buffer length" );
 			return;
 		}
 		m_socket->async_read_some( boost::asio::buffer( m_readBuffer, bufferSize ),
@@ -95,6 +96,9 @@ namespace XASIO
 		return false;
 	}
 
+	size_t XAsioTCPSession::getSendSize() const { return m_sendSize; }
+	size_t XAsioTCPSession::getRecvSize() const { return m_recvSize; }
+
 	void XAsioTCPSession::suspendSend( bool b )
 	{
 		m_isSuspendSend = b;
@@ -113,12 +117,11 @@ namespace XASIO
 	{
 		m_isSending = true;
 
-		std::ostream stream( &m_streamRequest );
-		stream.write( (const char*)buffer.getData(), buffer.getDataSize() );
-		boost::asio::async_write( *m_socket, m_streamRequest, 
+		size_t size = buffer.getDataSize();
+		memcpy_s( (void*)m_sendBuffer, MAX_PACKAGE_LEN, buffer.getData(), size );
+		boost::asio::async_write( *m_socket, boost::asio::buffer( m_sendBuffer, size ),
 			m_strand.wrap( boost::bind( &XAsioTCPSession::onWriteCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
-		m_streamRequest.consume( m_streamRequest.size() );
 	}
 
 	bool XAsioTCPSession::doSend()
@@ -130,8 +133,7 @@ namespace XASIO
 		mutex::scoped_lock lock( m_mutexs[SESSION_SEND_BUFFER] );
 		if ( !m_buffers[SESSION_SEND_BUFFER].empty() )
 		{
-			XAsioBuffer& buffer = m_buffers[SESSION_SEND_BUFFER].front();		
-			//ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "send %d left %d", buffer.getDataSize(), m_buffers[SESSION_SEND_BUFFER] ) );
+			XAsioBuffer& buffer = m_buffers[SESSION_SEND_BUFFER].front();
 			sendDirectly( buffer );
 			buffer.attach();
 			m_buffers[SESSION_SEND_BUFFER].pop_front();
@@ -168,6 +170,12 @@ namespace XASIO
 		{
 			if ( m_funcReadHandler != NULL )
 			{
+				XAsioBuffer buffer;
+				buffer.copy( m_readBuffer, bytesTransferred );				
+				ON_CALLBACK_PARAM( m_funcReadHandler, buffer );
+				m_recvSize += bytesTransferred;
+
+/*
 				mutex::scoped_lock lock( m_mutexs[SESSION_RECV_BUFFER] );
 				XAsioBuffer buffer;
 				buffer.copy( m_readBuffer.data(), bytesTransferred );
@@ -180,6 +188,7 @@ namespace XASIO
 				{
 					doRead();
 				}
+*/
 			}
 		}
 	}

@@ -73,7 +73,7 @@ namespace XASIO
 		/**
 		 * 发送
 		 */
-		void		send( std::string content );
+		void		send( std::string& content );
 		void		send( XAsioBuffer& buff );
 
 		/**
@@ -82,6 +82,7 @@ namespace XASIO
 		void		testSend();		
 		void		sendThread();
 		void		sendTestPackage();
+		void		testEcho();
 
 	protected:
 		/**
@@ -144,8 +145,10 @@ namespace XASIO
 		/**
 		 * 读取消息相关
 		 */
+		bool				m_bTestEcho;
 		bool				m_bReadHeader;
 		XAsioPackageHeader	m_packageHeader;
+		XAsioPackage		m_lastRecvPackage;		
 
 		/**
 		 * 发送

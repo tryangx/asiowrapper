@@ -27,6 +27,7 @@ namespace XASIO
 
 	public:
 		XAsioBuffer();
+		XAsioBuffer( const XAsioBuffer& buffer );
 		XAsioBuffer( void* pBuffer, size_t size );
 		XAsioBuffer( size_t size );
 		~XAsioBuffer();
@@ -39,6 +40,11 @@ namespace XASIO
 		void		setDataSize( size_t size );
 				
 		void		resize( size_t newSize );
+
+		/**
+		 * 设置数据，不具备所有权（即不会主动删除）
+		 */
+		void		setData( void* pData, size_t size );
 
 		/**
 		 * 复制数据
@@ -120,7 +126,6 @@ namespace XASIO
 	public:
 		int					i;
 		char				info[32];
-		XAsioPackageHeader*	m_pHeader;
 	};
 
 	//------------------------------
@@ -199,8 +204,9 @@ namespace XASIO
 		};
 
 	private:
-		char		m_tempBuffer[MAX_PACKAGE_LEN];
-		char*		m_pMsgBuf;
+		char					m_tempBuffer[MAX_PACKAGE_LEN];
+		char*					m_pMsgBuf;
+		XAsioPackageHeader*		m_pHeader;
 	};
 	
 	//------------------------------
@@ -268,6 +274,7 @@ namespace XASIO
 		};
 
 	private:
-		const char*		m_pCurPtr;
+		const char*				m_pCurPtr;
+		XAsioPackageHeader*		m_pHeader;
 	};
 }
