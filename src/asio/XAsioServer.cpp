@@ -9,15 +9,15 @@ namespace XASIO
 
 	//---------------------------
 	// 服务会话
-	std::function<void( std::string )>	XServerSession::m_sfuncLogHandler = nullptr;
+	std::function<void( const char* )>	XServerSession::m_sfuncLogHandler = nullptr;
 	size_t XServerSession::m_staSizeRecv = 0;
 	size_t XServerSession::m_staSizeSend = 0;
 
 	ServerSessionPtr XServerSession::create( TcpSessionPtr ptr ) { return ServerSessionPtr( new XServerSession( ptr ) )->shared_from_this(); }
 
-	void XServerSession::setLog( std::function<void( std::string& )> handler ) { m_sfuncLogHandler = handler; }	
+	void XServerSession::setLog( std::function<void( const char* )> handler ) { m_sfuncLogHandler = handler; }	
 	void XServerSession::disableLog() { m_sfuncLogHandler = nullptr; }
-	void XServerSession::onLogHandler( std::string& err ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( err ); } }
+	void XServerSession::onLogHandler( const char* pLog ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( pLog ); } }
 	
 	size_t XServerSession::getRecvSize() { return m_staSizeRecv; }
 	size_t XServerSession::getSendSize() { return m_staSizeSend; }
@@ -80,9 +80,8 @@ namespace XASIO
 		{
 			if ( m_packageHeader.m_dwSize != sizeof(XAsioPackage) )
 			{
-				onLogInfo( outputString( "FATAL ERROR %d", m_packageHeader.m_dwSize ) );
+				onLog( outputString( "FATAL ERROR %d", m_packageHeader.m_dwSize ) );
 			}
-			onLogInfo( outputString( "readpackage %d", m_packageHeader.m_dwSize ) );
 			m_tcpSession->read( m_packageHeader.m_dwSize );
 		}
 		else
@@ -129,15 +128,9 @@ namespace XASIO
 		m_tcpSession->close();
 	}
 
-	void XServerSession::onLog( std::string& err )
+	void XServerSession::onLog( const char* pLog )
 	{
-		std::string log = outputString( "[%d]%s", m_tcpSession ? m_tcpSession->getSessionId() : -1, err.c_str() );
-		onLogHandler( log );
-	}
-
-	void XServerSession::onLogInfo( const char* pInfo )
-	{
-		onLog( std::string( pInfo ) );
+		onLogHandler( outputString( "[%d]%s", m_tcpSession ? m_tcpSession->getSessionId() : -1, pLog ) );
 	}
 
 	void XServerSession::sendTestPackage()
@@ -218,7 +211,7 @@ namespace XASIO
 		{
 			ServerSessionPtr& ptr = it->second;
 			ptr->release();
-			ptr->close();			
+			ptr->close();
 			m_mapSession.erase( it );
 		}
 	}
@@ -243,13 +236,12 @@ namespace XASIO
 		}
 		m_ptrTCPServer->setAcceptHandler( &XServer::onAccept, this );
 		m_ptrTCPServer->setCancelHandler( &XServer::onCancel, this );
-		m_ptrTCPServer->setLogHandler( &XServer::onLog, this );
-		
+		m_ptrTCPServer->setLogHandler( &XServer::onLog, this );		
 		m_ptrTCPServer->startAccept( m_iAcceptThreadNum, m_iPort );
 
 		XServerSession::setLog( std::bind( &XServer::onLog, this, std::placeholders::_1 ) );
 
-		onLogInfo( "start server" );
+		onLog( "start server" );
 	}
 
 	void XServer::stopServer()
@@ -259,9 +251,10 @@ namespace XASIO
 			return;
 		}
 		mutex::scoped_lock lock( m_mutex );
-
-		m_bIsStarted = false;
 		
+		XServerSession::disableLog();
+
+		m_bIsStarted = false;		
 		m_ptrTCPServer->stopAccept();
 		
 		MAPSERVERSESSIONPTR::iterator it = std::begin( m_mapSession );
@@ -270,10 +263,8 @@ namespace XASIO
 			ServerSessionPtr& ptr = it->second;
 			ptr->close();
 		}
-
-		XServerSession::disableLog();
 		
-		onLogInfo( "stop server" );
+		onLog( "stop server" );
 	}
 
 	void XServer::sendTo( int id, XAsioBuffer& buff )
@@ -353,12 +344,12 @@ namespace XASIO
 		ptr->init( session );
 		m_mapSession.insert( std::make_pair( session->getSessionId(), ptr ) );
 
-		onLogInfo( outputString( "accept [ connect:%d pool:%d temp:%d ]", m_mapSession.size(), getSize(), getClosedSize() ) );
+		onLog( outputString( "accept [ connect:%d pool:%d temp:%d ]", m_mapSession.size(), getSize(), getClosedSize() ) );
 	}
 
 	void XServer::onCancel()
 	{
-		//onLogInfo( "cancel" );		//will trigger locked
+		//onLog( "cancel" );		//will trigger locked
 	}
 	
 	void XServer::onSessionClose( size_t id )
@@ -373,10 +364,11 @@ namespace XASIO
 			//releaseObject( it->second );
 			m_mapSession.erase( it );
 		}
-		onLogInfo( outputString( "session %d close [ pool:%d temp:%d ]", id, getSize(), getClosedSize() ) );
+		onLog( outputString( "session %d close [ pool:%d temp:%d ]", id, getSize(), getClosedSize() ) );
 	}
 
-	void XServer::onLog( std::string& err ) { if ( m_funcLogHandler != nullptr ) { m_funcLogHandler( err ); } }
-
-	void XServer::onLogInfo( const char* pInfo ) { onLog( std::string( pInfo ) ); }
+	void XServer::onLog( const char* pLog )
+	{
+		ON_CALLBACK_PARAM( m_funcLogHandler, pLog );
+	}
 }

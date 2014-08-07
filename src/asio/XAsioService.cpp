@@ -16,7 +16,7 @@ namespace XASIO
 
 	XAsioInterface::XAsioInterface( XAsioService& service )
 		: m_funcLogHandler( nullptr ), 
-		m_service( service ), m_strand( service.getIOService() ),
+		m_service( service ), m_ioService( service.getIOService() ), m_strand( m_ioService ),
 		m_bIsStarted( false ), m_id( 0 )
 	{
 		m_service.registerService( this );
@@ -35,8 +35,8 @@ namespace XASIO
 	unsigned int XAsioInterface::getId() const { return m_id; }
 	void XAsioInterface::setId( unsigned int id ) { m_id = id; }
 	
-	XAsioService& XAsioInterface::getIOService() { return m_service; }
-	const XAsioService& XAsioInterface::getIOService() const { return m_service; }
+	XAsioService& XAsioInterface::getService() { return m_service; }
+	const XAsioService& XAsioInterface::getService() const { return m_service; }
 
 	//-------------------------------------------
 
@@ -250,10 +250,10 @@ namespace XASIO
 		//释放服务器需要做的
 	}
 
-	void XAsioService::onLog( std::string& err )
+	void XAsioService::onLog( const char* pLog )
 	{
 		mutex::scoped_lock lock( m_srvMutex );
-		ON_CALLBACK_PARAM( m_funcLogHandler, err );
+		ON_CALLBACK_PARAM( m_funcLogHandler, pLog );
 	}
 
 	io_service&	XAsioService::getIOService()

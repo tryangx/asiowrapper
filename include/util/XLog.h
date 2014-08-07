@@ -79,5 +79,6 @@ namespace XASIO
 		bool			m_bUseHourFileName;
 
 		boost::mutex	m_mutex;
+		char			m_szText[MAX_LOG_BUFFER];
 	};
 }

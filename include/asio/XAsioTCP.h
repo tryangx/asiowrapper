@@ -50,6 +50,9 @@ namespace XASIO
 		XAsioTCPSession( XAsioService& io );
 		~XAsioTCPSession();
 
+		/**
+		 * 获取套接字
+		 */
 		const TcpSocketPtr	getSocket() const;
 		
 		/**
@@ -63,9 +66,13 @@ namespace XASIO
 		void			close();
 
 		/**
-		 * 读取
+		 * 接收数据
 		 */
 		virtual void	read();
+
+		/**
+		 * 接收指定长度数据
+		 */
 		virtual void	read( size_t bufferSize );
 
 		/**
@@ -73,11 +80,24 @@ namespace XASIO
 		 */
 		virtual void	write( XAsioBuffer& buffer );
 
+		/**
+		 * 发送挂起
+		 */
 		void			suspendSend( bool b );
+		/**
+		 * 派发挂起
+		 */
 		void			suspendDispatch( bool b );
 			
+		/**
+		 * 获取已发送字节
+		 */
 		size_t			getSendSize() const;
+		/**
+		 * 获取已接收字节
+		 */
 		size_t			getRecvSize() const;
+
 	protected:
 		/**
 		 * 处理发送队列
@@ -88,10 +108,12 @@ namespace XASIO
 		 */
 		bool			doRead();
 
+		/**
+		 * 直接发送缓存
+		 */
 		void			sendDirectly( const XAsioBuffer& buffer );
 
 		virtual bool	onTimer( unsigned int id, const void* pUserData );
-
 		virtual void	onReadCallback( const boost::system::error_code& err, size_t bytesTransferred );
 		virtual void	onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred );
 

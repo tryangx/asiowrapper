@@ -10,17 +10,17 @@ namespace XASIO
 
 	std::function<void( std::string )>	XClient::m_sfuncLogHandler = nullptr;
 
-	void XClient::setLog( std::function<void( std::string& )> handler ) { m_sfuncLogHandler = handler; }	
+	void XClient::setLog( std::function<void( const char* )> handler ) { m_sfuncLogHandler = handler; }	
 	void XClient::disableLog() { m_sfuncLogHandler = nullptr; }
-	void XClient::onLogHandler( std::string& err ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( err ); } }
+	void XClient::onLogHandler( const char* pLog ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( pLog ); } }
 
 	size_t XClient::getSendSize() { return m_staSizeSend; }
 	size_t XClient::getRecvSize() { return m_staSizeRecv; }
 
 	XClient::XClient( XAsioService& io ) : m_service( io ),
-		m_iPort( DEFAULT_XASIO_PORT ), m_bInit( false ), m_bIsConnected( false ), m_id( 0 ), m_bReadHeader( false ),
+		m_iPort( DEFAULT_XASIO_PORT ), m_bInit( false ), m_bIsConnected( false ), m_id( 0 ),
 		m_connectTimer( m_service.getIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr ),
-		m_bTestEcho( false )
+		m_bReadHeader( false ), m_bTestEcho( false )
 	{
 	}
 
@@ -51,7 +51,7 @@ namespace XASIO
 	{
 		if ( m_bIsConnected )
 		{
-			onLogInfo( "Client already connect to server!" );
+			onLog( "Client already connect to server!" );
 			return;
 		}
 		m_sHost = host;
@@ -68,7 +68,7 @@ namespace XASIO
 		}
 		if ( !m_bInit || m_bIsConnected )
 		{
-			onLogInfo( "Client isn't initailized" );
+			onLog( "Client isn't initailized" );
 			return;
 		}
 		m_ptrTCPClient->setConnectHandler( &XClient::onConnect, this );
@@ -76,7 +76,7 @@ namespace XASIO
 		m_ptrTCPClient->setLogHandler( &XClient::onLog, this );
 		m_ptrTCPClient->connect( m_sHost, m_iPort );
 		
-		//m_connectTimer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
+		m_connectTimer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
 
 		m_bReadHeader = false;
 	}
@@ -98,7 +98,7 @@ namespace XASIO
 			{	
 				m_ptrSession->close();
 			}
-			onLogInfo( "disconnect" );
+			//onLog( "disconnect" );		//will cause lock
 		}
 		m_connectTimer.cancel();
 
@@ -124,8 +124,8 @@ namespace XASIO
 		}
 		if ( m_ptrSession && m_ptrSession->isOpen() )
 		{
-			XAsioBuffer buff = stringToBuffer( content );
-			onLogInfo( outputString( "send %d", buff.getDataSize() ) );
+			XAsioBuffer buff;
+			buff.convertFromString( content );
 			m_ptrSession->write( buff );
 		}
 	}
@@ -158,7 +158,7 @@ namespace XASIO
 			{
 				if ( m_packageHeader.m_dwSize != sizeof(XAsioPackage) )
 				{
-					onLogInfo( outputString( "FATAL ERROR %d", m_packageHeader.m_dwSize ) );
+					onLog( outputString( "FATAL ERROR %d", m_packageHeader.m_dwSize ) );
 				}
 				m_ptrSession->read( m_packageHeader.m_dwSize );
 			}
@@ -177,7 +177,7 @@ namespace XASIO
 		}
 		if ( session == nullptr )
 		{
-			onLogInfo( "cann't connec to server" );
+			onLog( "cann't connec to server" );
 			disconnect();
 			return;
 		}
@@ -194,7 +194,7 @@ namespace XASIO
 
 		recv();
 
-		onLogInfo( "Client is connect to server!" );
+		onLog( "Client connect server!" );
 	}
 
 	void XClient::onRecv( XAsioBuffer& buff )
@@ -233,21 +233,17 @@ namespace XASIO
 
 	void XClient::onResolve()
 	{
-		//onLogInfo( "resolve" );
 	}
 
 	void XClient::onClose( size_t id )
 	{
 		m_bIsConnected = false;
-		//onLogInfo( "close" );
 	}
-
-	void XClient::onLogInfo( const char* pInfo ) { onLog( std::string( pInfo ) ); }
-
-	void XClient::onLog( std::string& err )
+	
+	void XClient::onLog( const char* pLog )
 	{
-		std::string log = outputString( "[%d]%s", m_id, err.c_str() );
-		onLogHandler( log );
+		std::string log = outputString( "[%d]%s", m_id, pLog );
+		onLogHandler( log.c_str() );
 	}
 	
 	void XClient::onConnTimeoutCallback( const boost::system::error_code& err )
@@ -256,7 +252,7 @@ namespace XASIO
 		{
 			if ( err )
 			{
-				onLog( err.message() );
+				onLog( err.message().c_str() );
 			}
 			else
 			{
@@ -281,7 +277,7 @@ namespace XASIO
 		recv();
 
 		XAsioBuffer buff;
-		buff.setData( &header, sizeof(header) );
+		buff.clone( &header, sizeof(header) );
 		send( buff );
 	}
 
@@ -289,7 +285,7 @@ namespace XASIO
 	{
 		if ( m_bIsConnected )
 		{
-			int times = 1;//rand() % 1 + 1;
+			int times = rand() % 1 + 1;
 			for ( int i = 0; i < times; i++ )
 			{
 				XAsioPackage p;

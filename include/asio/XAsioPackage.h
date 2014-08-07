@@ -32,29 +32,52 @@ namespace XASIO
 		XAsioBuffer( size_t size );
 		~XAsioBuffer();
 		
+		/**
+		 * 获取数据
+		 */
 		void*		getData();
 		const void*	getData() const;
 
+		/**
+		 * 获取分配空间大小
+		 */
 		size_t		getAllocatedSize() const;
+		/**
+		 * 获取数据大小
+		 */
 		size_t		getDataSize() const;
+		/**
+		 * 设置数据大小
+		 */
 		void		setDataSize( size_t size );
-				
+		/**
+		 * 重新分配空间
+		 */
 		void		resize( size_t newSize );
 
 		/**
-		 * 设置数据，不具备所有权（即不会主动删除）
+		 * 浅表复制，不拥有具备所有权（即需要手动删除）
 		 */
-		void		setData( void* pData, size_t size );
+		void		clone( void* pData, size_t size );
 
 		/**
-		 * 复制数据
+		 * (深度)复制数据，拥有所有权（不需要手动删除）
 		 */
 		void		copy( const void* pData, size_t size );
 
 		/**
-		 * 复制缓存
+		 * (深度)复制缓存，拥有所有权（不需要手动删除）
 		 */
 		void		copy( XAsioBuffer& buffer );
+
+		/**
+		 * 转换为字符串
+		 */
+		void		convertToString( std::string& str );
+		/**
+		 * 从字符串转换为缓存
+		 */
+		void		convertFromString( std::string& str );
 
 		/**
 		 * 获取数据所有权
@@ -68,9 +91,6 @@ namespace XASIO
 	private:
 		stBuffInfo	m_bufData;
 	};
-
-	std::string	bufferToString( const XAsioBuffer& buffer );
-	XAsioBuffer	stringToBuffer( std::string& value );
 
 	//-------------------------------------------
 	//  包头

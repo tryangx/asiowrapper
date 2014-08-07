@@ -76,7 +76,8 @@ namespace XASIO
 
 	protected:
 		XAsioService&						m_service;
-		boost::asio::strand					m_strand;
+		boost::asio::io_service&			m_ioService;
+		boost::asio::strand					m_strand;		
 
 		/**
 		 * 会话编号，作为键值
@@ -89,6 +90,6 @@ namespace XASIO
 		std::function<void( XAsioBuffer )>	m_funcReadHandler;
 		std::function<void( size_t )>		m_funcWriteHandler;
 		std::function<void( size_t )>		m_funcCloseHandler;
-		std::function<void( std::string )>	m_funcLogHandler;		
+		std::function<void( const char* )>	m_funcLogHandler;		
 	};
 }

@@ -13,7 +13,7 @@ namespace XASIO
 		/**
 		 * 静态日志控制接口
 		 */
-		static void		setLog( std::function<void( std::string& )> handler );
+		static void		setLog( std::function<void( const char* )> handler );
 		static void		disableLog();
 
 		/**
@@ -26,7 +26,7 @@ namespace XASIO
 		static size_t	getRecvSize();
 
 	protected:
-		static void		onLogHandler( std::string& err );
+		static void		onLogHandler( const char* pLog );
 				
 	protected:
 		static std::function<void( std::string )>	m_sfuncLogHandler;
@@ -101,8 +101,7 @@ namespace XASIO
 		void		onSend( size_t bytesTransferred );
 		void		onResolve();
 		void		onClose( size_t id );
-		void		onLogInfo( const char* pInfo );
-		void		onLog( std::string& err );
+		void		onLog( const char* pLog );
 		
 		void		onConnTimeoutCallback( const boost::system::error_code& ec );
 

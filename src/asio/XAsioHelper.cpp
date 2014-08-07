@@ -10,24 +10,12 @@ namespace XASIO
 	{
 		static boost::mutex	_mutex;
 		static char text[MAX_LOG_BUFFER];
-		mutex::scoped_lock lock( mutex );
-		memset( text, 0, MAX_LOG_BUFFER );
+		mutex::scoped_lock lock( _mutex );
 		va_list args;
 		va_start( args, pszFormat );
-		vsprintf_s( text, sizeof(text), pszFormat, args );
+		vsnprintf_s( text, MAX_LOG_BUFFER, pszFormat, args );
 		va_end( args );
 		return text;
-	}
-
-	//----------------------
-	std::string bufferToString( const XAsioBuffer& buffer )
-	{
-		return std::string( static_cast<const char*>( buffer.getData() ) );
-	}
-
-	XAsioBuffer stringToBuffer( std::string& value )
-	{
-		return XAsioBuffer( &value[ 0 ], value.size() );
 	}
 
 	//-----------------------------------------
@@ -103,10 +91,6 @@ namespace XASIO
 		if ( !ec && onTimer( st._id, st._pUserData ) && stTimerInfo::TIMER_RUN == st._enStatus )
 		{
 			startTimer( st );
-		}
-		else
-		{
-			//需要处理错误
 		}
 	}
 	
@@ -193,7 +177,7 @@ namespace XASIO
 		memcpy_s( m_bufData._pData, m_bufData._allocatedSize, pData, size );
 	}
 
-	void XAsioBuffer::setData( void* pData, size_t size )
+	void XAsioBuffer::clone( void* pData, size_t size )
 	{
 		if ( m_bufData._pData && m_bufData._bOwnsData )
 		{
@@ -204,6 +188,18 @@ namespace XASIO
 		m_bufData._allocatedSize	= size;
 		m_bufData._dataSize			= size;
 		m_bufData._bOwnsData		= false;
+	}
+	
+	void XAsioBuffer::convertToString( std::string& str )
+	{
+		str = static_cast<const char*>( getData() );
+	}
+
+	void XAsioBuffer::convertFromString( std::string& str )
+	{
+		m_bufData._pData			= &str[0];
+		m_bufData._dataSize			= str.size();
+		m_bufData._allocatedSize	= m_bufData._dataSize;
 	}
 
 	//------------------------------------

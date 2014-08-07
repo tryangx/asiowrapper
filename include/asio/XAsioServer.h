@@ -24,7 +24,7 @@ namespace XASIO
 		/**
 		 * 静态日志控制接口
 		 */
-		static void		setLog( std::function<void( std::string& )> handler );
+		static void		setLog( std::function<void( const char* )> handler );
 		static void		disableLog();
 
 		/**
@@ -34,10 +34,10 @@ namespace XASIO
 		static size_t	getSendSize();
 
 	protected:
-		static void		onLogHandler( std::string& err );
+		static void		onLogHandler( const char* pLog );
 
 	protected:
-		static std::function<void( std::string )>	m_sfuncLogHandler;
+		static std::function<void( const char* )>	m_sfuncLogHandler;
 		static size_t		m_staSizeRecv;
 		static size_t		m_staSizeSend;
 
@@ -83,8 +83,7 @@ namespace XASIO
 	protected:
 		void			recv();
 
-		void			onLog( std::string& err );
-		void			onLogInfo( const char* pInfo );
+		void			onLog( const char* pLog );
 
 		virtual void	onClose();
 		virtual void	onRecv( XAsioBuffer& buff );
@@ -187,8 +186,7 @@ namespace XASIO
 		void		onAccept( TcpSessionPtr );
 		void		onCancel();
 		void		onSessionClose( size_t id );
-		void		onLog( std::string& err );
-		void		onLogInfo( const char* pInfo );
+		void		onLog( const char* pLog );
 
 	protected:
 		/**
@@ -219,6 +217,6 @@ namespace XASIO
 		//是否启动
 		bool							m_bIsStarted;
 
-		std::function<void( std::string& )>			m_funcLogHandler;
+		std::function<void( const char* )>			m_funcLogHandler;
 	};
 }

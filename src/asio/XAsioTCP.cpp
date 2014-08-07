@@ -11,11 +11,11 @@ namespace XASIO
 	}
 	
 	XAsioTCPSession::XAsioTCPSession( XAsioService& io )
-		: XAsioSession( io ), XAsioTimer( m_service.getIOService() ),
+		: XAsioSession( io ), XAsioTimer( m_ioService ),
 		m_isSending( false ), m_isSuspendSend( false ), m_isSuspendDispatch( false ),
 		m_sendSize( 0 ), m_recvSize( 0 )
 	{
-		m_socket = TcpSocketPtr( new tcp::socket( m_service.getIOService() ) );
+		m_socket = TcpSocketPtr( new tcp::socket( m_ioService ) );
 	}
 
 	XAsioTCPSession::~XAsioTCPSession()
@@ -25,10 +25,7 @@ namespace XASIO
 	
 	const TcpSocketPtr XAsioTCPSession::getSocket() const { return m_socket; }
 
-	bool XAsioTCPSession::isOpen()
-	{
-		return m_socket && m_socket->is_open();
-	}
+	bool XAsioTCPSession::isOpen() { return m_socket && m_socket->is_open(); }
 
 	void XAsioTCPSession::close()
 	{
@@ -73,6 +70,7 @@ namespace XASIO
 	void XAsioTCPSession::write( XAsioBuffer& buffer )
 	{
 		mutex::scoped_lock lock( m_mutexs[SESSION_SEND_BUFFER] );
+
 		XAsioBuffer newBuffer;
 		newBuffer.copy( buffer );
 		newBuffer.detach();
@@ -102,6 +100,10 @@ namespace XASIO
 	void XAsioTCPSession::suspendSend( bool b )
 	{
 		m_isSuspendSend = b;
+		if ( !m_isSuspendSend )
+		{
+			doSend();
+		}
 	}
 
 	void XAsioTCPSession::suspendDispatch( bool b )
@@ -163,33 +165,26 @@ namespace XASIO
 	{
 		if ( err ) 
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
 		else
 		{
-			if ( m_funcReadHandler != NULL )
+			m_recvSize += bytesTransferred;
+
+			XAsioBuffer buffer;
+			buffer.copy( m_readBuffer, bytesTransferred );
+			if ( m_isSuspendDispatch )
 			{
-				XAsioBuffer buffer;
-				buffer.copy( m_readBuffer, bytesTransferred );				
-				ON_CALLBACK_PARAM( m_funcReadHandler, buffer );
-				m_recvSize += bytesTransferred;
-
-/*
-				mutex::scoped_lock lock( m_mutexs[SESSION_RECV_BUFFER] );
-				XAsioBuffer buffer;
-				buffer.copy( m_readBuffer.data(), bytesTransferred );
 				buffer.detach();
+				mutex::scoped_lock lock( m_mutexs[SESSION_RECV_BUFFER] );
 				m_buffers[SESSION_RECV_BUFFER].push_back( buffer );
-				m_recvSize += bytesTransferred;
 				lock.unlock();
-
-				if ( !m_isSuspendDispatch )
-				{
-					doRead();
-				}
-*/
 			}
+			else
+			{
+				ON_CALLBACK_PARAM( m_funcReadHandler, buffer );
+			}	
 		}
 	}
 
@@ -197,14 +192,15 @@ namespace XASIO
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}	
 		else
 		{
-			ON_CALLBACK_PARAM( m_funcWriteHandler, bytesTransferred );
-			
 			m_sendSize += bytesTransferred;
+
+			ON_CALLBACK_PARAM( m_funcWriteHandler, bytesTransferred );						
+
 			m_isSending = false;
 			doSend();
 		}
@@ -214,13 +210,14 @@ namespace XASIO
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
 		}
 		ON_CALLBACK_PARAM( m_funcCloseHandler, getSessionId() );
 	}
 
 	//---------------
 	//TCP¿Í»§¶Ë¿ØÖÆ
+
 	TcpClientPtr XAsioTCPClient::create( XAsioService& io )
 	{
 		return TcpClientPtr( new XAsioTCPClient( io ) )->shared_from_this();
@@ -269,7 +266,7 @@ namespace XASIO
 	{
 		if ( err ) 
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
 		}
 		else
 		{
@@ -288,7 +285,7 @@ namespace XASIO
 	{
 		if ( err )
 		{
-			if ( error::operation_aborted != err && getIOService().isRunning() )
+			if ( error::operation_aborted != err && getService().isRunning() )
 			{
 				if ( m_ptrSession )
 				{
@@ -296,7 +293,7 @@ namespace XASIO
 				}		
 				ON_CALLBACK( m_funcReconnectHandler );
 			}
-			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
 			ON_CALLBACK_PARAM( m_funcConnectHandler, nullptr );
 		}
 		else 
@@ -348,7 +345,7 @@ namespace XASIO
 	{
 		if ( m_acceptor == nullptr )
 		{
-			m_acceptor = TcpAcceptorPtr( new tcp::acceptor( m_service.getIOService(), tcp::endpoint( tcp::v4(), port) ) );
+			m_acceptor = TcpAcceptorPtr( new tcp::acceptor( m_ioService, tcp::endpoint( tcp::v4(), port) ) );
 		}
 		for ( int i = 0; i < threadNum; i++ )
 		{
@@ -373,7 +370,7 @@ namespace XASIO
 			m_acceptor->close( err );
 			if ( err )
 			{
-				ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
 			}
 			else
 			{
@@ -386,7 +383,7 @@ namespace XASIO
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
 		}
 		else
 		{

@@ -6,7 +6,7 @@ namespace XASIO
 	//	会话接口实现
 
 	XAsioSession::XAsioSession( XAsioService& service )
-		: m_service( service ), m_strand( m_service.getIOService() ),
+		: m_service( service ), m_ioService( m_service.getIOService() ), m_strand( m_ioService ),
 		m_funcReadHandler( nullptr ), m_funcWriteHandler( nullptr ), m_funcLogHandler( nullptr ), m_funcCloseHandler( nullptr ),
 		m_sessionId( 0 )
 	{
@@ -32,7 +32,7 @@ namespace XASIO
 	{
 		if ( err ) 
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
 		else
@@ -50,7 +50,7 @@ namespace XASIO
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, err.message() );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
 		else

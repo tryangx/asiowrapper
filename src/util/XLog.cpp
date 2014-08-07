@@ -198,16 +198,15 @@ namespace XASIO
 
 	void XLogUtil::writeLog( const char* pszFormat, ... )
 	{
-		mutex::scoped_lock lock( m_mutex );
-		static char text[MAX_LOG_BUFFER];
+		mutex::scoped_lock lock( m_mutex );				
 		va_list args;
 		va_start( args, pszFormat );
-		sprintf_s( text, MAX_LOG_BUFFER, pszFormat, args );
+		vsnprintf_s( m_szText, MAX_LOG_BUFFER, pszFormat, args );
 		va_end(args);
 
 		updateLogFileName();
 		m_log.writeTime( true );
-		m_log.writeLog( text, true );
+		m_log.writeLog( m_szText, true );
 	}
 
 	void XLogUtil::updateLogFileName()

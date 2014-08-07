@@ -10,7 +10,7 @@ namespace XASIO
 
 	XAsioUDPSession::XAsioUDPSession( XAsioService& service ) : XAsioSession( service )
 	{
-		m_socket = UdpSocketPtr( new udp::socket( m_service.getIOService() ) );
+		m_socket = UdpSocketPtr( new udp::socket( m_ioService ) );
 	}
 
 	XAsioUDPSession::~XAsioUDPSession()
@@ -104,17 +104,11 @@ namespace XASIO
 	{
 		if ( err )
 		{
-			if ( m_funcLogHandler != nullptr )
-			{
-				m_funcLogHandler( err.message() );
-			}
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message().c_str() ) );
 		}
 		else
 		{
-			if ( m_funcResolveHandler != nullptr )
-			{
-				m_funcResolveHandler();
-			}
+			ON_CALLBACK( m_funcResolveHandler );
 			UdpSessionPtr session( new XAsioUDPSession( m_service ) );
 			boost::asio::async_connect( *session->getSocket(), it, 
 				m_strand.wrap( boost::bind( &XAsioUDPClient::onConnectCallback, 
@@ -160,23 +154,17 @@ namespace XASIO
 		m_ptrSession->getSocket()->open( boost::asio::ip::udp::v4(), err );
 		if ( err ) 
 		{
-			if ( m_funcLogHandler != nullptr )
-			{
-				m_funcLogHandler( err.message() );
-			}
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
 			return;
 		}
 		m_ptrSession->getSocket()->bind( udp::endpoint( udp::v4(), port ), err );
 		if ( err ) 
 		{
-			if ( m_funcLogHandler != nullptr )
-			{
-				m_funcLogHandler( err.message() );
-			}
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
 		}
-		else if ( m_funcAcceptHandler != nullptr ) 
+		else
 		{
-			m_funcAcceptHandler( m_ptrSession );
+			ON_CALLBACK_PARAM( m_funcAcceptHandler, m_ptrSession );
 		}
 	}
 
@@ -184,14 +172,11 @@ namespace XASIO
 	{
 		if ( err )
 		{
-			if ( m_funcLogHandler != nullptr )
-			{
-				m_funcLogHandler( err.message() );
-			}
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message().c_str() ) );
 		}
 		else if ( m_funcConnectHandler != nullptr )
 		{
-			m_funcConnectHandler( session );
+			ON_CALLBACK_PARAM( m_funcConnectHandler, session );
 		}
 	}
 }

@@ -44,9 +44,8 @@ namespace XASIO
 		unsigned int		getId() const;
 		void				setId( unsigned int id );
 
-		//io_service
-		XAsioService&		getIOService();
-		const XAsioService& getIOService() const;
+		XAsioService&		getService();
+		const XAsioService& getService() const;
 		
 		/**
 		 * 启动服务的初始化
@@ -67,12 +66,13 @@ namespace XASIO
 		
 	protected:	
 		XAsioService&				m_service;
+		boost::asio::io_service&	m_ioService;
 		boost::asio::strand			m_strand;
 		
 		size_t						m_id;
 		bool						m_bIsStarted;
 
-		std::function<void( std::string& )>		m_funcLogHandler;
+		std::function<void( const char* )>		m_funcLogHandler;
 	};
 
 	class XAsioServicePool
@@ -189,6 +189,6 @@ namespace XASIO
 
 		bool				m_bIsStarted;
 
-		std::function<void( std::string& )>			m_funcLogHandler;
+		std::function<void( const char* )>			m_funcLogHandler;
 	};
 }
