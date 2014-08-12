@@ -1,12 +1,15 @@
 #pragma once
 
+#pragma warning( disable : 4251 )
+#include <mysql_driver.h>
+#include <mysql_connection.h>
 #include <cppconn/driver.h>
 #include <cppconn/statement.h>
 #include <cppconn/prepared_statement.h>
 #include <cppconn/metadata.h>
 #include <cppconn/exception.h>
+#include <boost/unordered_map.hpp>
 #include <list>
-#include <unordered_map>
 #include <boost/thread/mutex.hpp>
 
 namespace XMYSQL
@@ -19,6 +22,8 @@ namespace XMYSQL
 	class XDBMysql
 	{
 	public:
+		XDBMysql();
+
 		bool		isConnected() const;
 
 		/**
@@ -27,11 +32,14 @@ namespace XMYSQL
 		bool		connect( const char* pAddress, const char* pUserName, const char* pPassword );
 
 		/**
+		 * 选择架构
+		 */
+		void		selectSchema( const char* pSchemaName );
+
+		/**
 		 * 关闭连接
 		 */
 		void		close();
-
-		bool		selectDataBase( const char* pDataBase );
 
 		/**
 		 * 获取连接
@@ -56,13 +64,21 @@ namespace XMYSQL
 		 * 主要用于select
 		 */
 		ResultSet*	query( const char* pCmd, Connection* pConn = NULL );
-
+		
+		
 		/**
 		 * 创建保存点
+		 * innoDB
 		 */
 		Savepoint*	crateSavePoint( Connection* pConn );
-		bool		rollback( Connection* pConn, Savepoint* pSavepoint = NULL );
+		/**
+		 * 释放保存点
+		 */
 		void		releaseSavePoint( Connection* pConn, Savepoint* pSavepoint );
+		/**
+		 * 回滚
+		 */
+		bool		rollback( Connection* pConn, Savepoint* pSavepoint = NULL );		
 
 		/**
 		 * 创建预处理
@@ -74,7 +90,6 @@ namespace XMYSQL
 		PreparedStatement*	getPreparestatement( int type );
 
 	protected:
-		XDBMysql();
 
 		Statement*	createStatement( Connection* pConn = NULL );
 
@@ -98,6 +113,7 @@ namespace XMYSQL
 		std::string				m_sUserName;
 		std::string				m_sPassword;
 		std::string				m_sAddress;
+		std::string				m_sSchema;
 
 		//连接
 		typedef std::list<Connection*>		LIST_CONNECTION;
@@ -107,7 +123,7 @@ namespace XMYSQL
 		boost::mutex			m_mutexConn;		
 
 		//预处理语句
-		typedef std::unordered_map<int,PreparedStatement*>	MAP_PREPARESTATEMENT;
+		typedef boost::unordered_map<int,PreparedStatement*>	MAP_PREPARESTATEMENT;
 		MAP_PREPARESTATEMENT	m_mapPrepareStatment;
 		boost::mutex			m_mutexPrepareStatment;
 	};

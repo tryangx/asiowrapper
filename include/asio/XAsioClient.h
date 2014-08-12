@@ -29,7 +29,7 @@ namespace XASIO
 		static void		onLogHandler( const char* pLog );
 				
 	protected:
-		static std::function<void( std::string )>	m_sfuncLogHandler;
+		static std::function<void( const char* )>	m_sfuncLogHandler;
 		/**
 		 * 所有客户端发送消息的长度
 		 */

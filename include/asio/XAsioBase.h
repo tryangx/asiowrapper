@@ -22,9 +22,11 @@ using namespace boost::system;
 #error XASIO only support vc and gcc.
 #endif
 
+/*
 #if defined _MSC_VER && _MSC_VER < 1600
 #error XASIO must be compiled with vc2010 or higher.
 #endif
+*/
 
 //After a roughly reading from gcc.gnu.org, I guess that the minimum version of gcc that support c++0x
 //is 4.6, so, I supply the following compiler verification. If there's something wrong, you can freely

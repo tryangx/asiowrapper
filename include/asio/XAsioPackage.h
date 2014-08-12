@@ -2,6 +2,8 @@
 
 #include "XAsioBase.h"
 
+#pragma pack( 1 )
+
 namespace XASIO
 {
 	//消息最大长度

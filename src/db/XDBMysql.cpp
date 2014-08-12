@@ -2,12 +2,11 @@
 
 namespace XMYSQL
 {
-
-#define CATCH_SQL_EXCEPTION				\
-	catch ( SQLException& e ) { onLog( e.what() ); }	\
+#define CATCH_SQL_EXCEPTION		\
+	catch ( SQLException& e ) { onLog( e.what() ); }\
 	catch ( std::runtime_error& e ) { onLog( e.what() ); }
 
-	XDBMysql::XDBMysql() : m_pDriver( NULL ), m_pSavepoint( NULL ),
+	XDBMysql::XDBMysql() : m_pDriver( NULL ), m_pSavepoint( NULL ), m_pConnection( NULL ),
 		m_iCurConnect( 0 ), m_iMaxConnect( 1 )
 	{
 	}
@@ -26,9 +25,20 @@ namespace XMYSQL
 		}
 		try
 		{
-			m_pDriver = sql::mysql::get_mysql_driver_instance();
+			m_pDriver = mysql::get_mysql_driver_instance();
+			return getConnection() != NULL;
 		}
 		CATCH_SQL_EXCEPTION
+		return true;
+	}
+
+	void XDBMysql::selectSchema( const char* pSchemaName )
+	{
+		m_sSchema = pSchemaName;
+		if ( m_pConnection )
+		{
+			m_pConnection->setSchema( m_sSchema.c_str() );
+		}
 	}
 
 	void XDBMysql::close()
@@ -39,7 +49,7 @@ namespace XMYSQL
 			try
 			{
 				LIST_CONNECTION::iterator it;
-				for ( it = std::begin( m_listConnect ); it != std::end( m_listConnect ); it++ )
+				for ( it = m_listConnect.begin(); it != m_listConnect.end(); it++ )
 				{
 					Connection* pConn = *it;
 					if ( !pConn->isClosed() )
@@ -52,13 +62,9 @@ namespace XMYSQL
 		}
 	}
 
-	bool XDBMysql::selectDataBase( const char* pDataBase )
-	{
-	}
-
 	bool XDBMysql::execute( const char* pCmd, Connection* pConn /* = NULL */ )
 	{
-		if ( !pCmd )
+		if ( !pCmd || !isConnected() )
 		{
 			return false;
 		}
@@ -79,7 +85,7 @@ namespace XMYSQL
 
 	int XDBMysql::update( const char* pCmd, Connection* pConn /* = NULL */ )
 	{
-		if ( !pCmd )
+		if ( !pCmd || !isConnected() )
 		{
 			return 0;
 		}
@@ -100,7 +106,7 @@ namespace XMYSQL
 
 	ResultSet* XDBMysql::query( const char* pCmd, Connection* pConn /* = NULL */ )
 	{
-		if ( !pCmd )
+		if ( !pCmd || !isConnected() )
 		{
 			return NULL;
 		}
@@ -182,7 +188,7 @@ namespace XMYSQL
 			if ( pStatment )
 			{
 				mutex::scoped_lock lock( m_mutexPrepareStatment );
-				m_mapPrepareStatment.insert( std::make_pair( type, pCmd ) );
+				m_mapPrepareStatment.insert( std::make_pair( type, pStatment ) );
 			}
 		}
 		CATCH_SQL_EXCEPTION
@@ -192,7 +198,7 @@ namespace XMYSQL
 	{
 		mutex::scoped_lock lock( m_mutexPrepareStatment );
 		MAP_PREPARESTATEMENT::iterator it = m_mapPrepareStatment.find( type );
-		return it != std::end( m_mapPrepareStatment ) ? *it : NULL;
+		return it != m_mapPrepareStatment.end() ? it->second : NULL;
 	}
 
 	Statement* XDBMysql::createStatement( Connection* pConn /* = NULL */ )
@@ -214,6 +220,10 @@ namespace XMYSQL
 		try
 		{
 			pConn = m_pDriver->connect( m_sAddress, m_sUserName, m_sPassword );
+			if ( pConn && !m_sSchema.empty() )
+			{
+				pConn->setSchema( m_sSchema );
+			}
 			return pConn;
 		}
 		CATCH_SQL_EXCEPTION
@@ -298,7 +308,7 @@ namespace XMYSQL
 	{
 		LIST_CONNECTION::iterator it;
 		mutex::scoped_lock lock( m_mutexConn );
-		for ( it = std::begin( m_listConnect ); it != std::end( m_listConnect ); it++ )
+		for ( it = m_listConnect.begin(); it != m_listConnect.end(); it++ )
 		{
 			destroyConnect( *it );
 		}
@@ -308,4 +318,4 @@ namespace XMYSQL
 	void XDBMysql::onLog( const char* pLog )
 	{
 	}
-};
+}

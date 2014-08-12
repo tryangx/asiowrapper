@@ -8,7 +8,7 @@ namespace XASIO
 	size_t XClient::m_staSizeSend = 0;
 	size_t XClient::m_staSizeRecv = 0;
 
-	std::function<void( std::string )>	XClient::m_sfuncLogHandler = nullptr;
+	std::function<void( const char* )>	XClient::m_sfuncLogHandler = nullptr;
 
 	void XClient::setLog( std::function<void( const char* )> handler ) { m_sfuncLogHandler = handler; }	
 	void XClient::disableLog() { m_sfuncLogHandler = nullptr; }
