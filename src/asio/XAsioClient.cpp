@@ -250,11 +250,13 @@ namespace XASIO
 	{
 		if ( !m_bIsConnected )
 		{
+/*
 			if ( err )
 			{
 				onLog( err.message().c_str() );
 			}
 			else
+*/
 			{
 				disconnect();
 			}

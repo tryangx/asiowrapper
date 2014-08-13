@@ -13,7 +13,7 @@ namespace XASIO
 		mutex::scoped_lock lock( _mutex );
 		va_list args;
 		va_start( args, pszFormat );
-		vsnprintf_s( text, MAX_LOG_BUFFER, pszFormat, args );
+		vsnprintf( text, MAX_LOG_BUFFER, pszFormat, args );
 		va_end( args );
 		return text;
 	}
