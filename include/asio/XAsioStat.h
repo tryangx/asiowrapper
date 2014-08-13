@@ -11,7 +11,7 @@ namespace XGAME
 	class XAsioStat
 	{
 	public:
-		XAsioStat();
+		XAsioStat() {}
 		
 		void			recv( size_t size ) { m_iRecvSize += size; }
 

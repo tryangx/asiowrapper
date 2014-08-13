@@ -199,6 +199,12 @@ namespace XGAME
 		onLog( "Client connect server!" );
 	}
 
+	class test
+	{
+	public:
+		void	print() {}
+	};
+
 	void XClient::onRecv( XAsioBuffer& buff )
 	{
 		if ( m_bTestEcho )
@@ -211,7 +217,7 @@ namespace XGAME
 			send( buff );
 			recv();
 			
-			XAsioStatAgent::getConstInstance().recv( buff.getDataSize() );
+			XAsioStatAgent::getMutableInstance()->recv( buff.getDataSize() );
 			m_staSizeRecv += buff.getDataSize();
 		}
 		else
