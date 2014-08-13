@@ -1,7 +1,7 @@
 #include "../../include/asio/XAsioInterface.h"
 #include "../../include/asio/XAsioService.h"
 
-namespace XASIO
+namespace XGAME
 {
 	//-------------------------------------------
 	//	客户端接口实现

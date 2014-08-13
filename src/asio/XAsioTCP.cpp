@@ -1,6 +1,7 @@
 #include "../../include/asio/XAsioTCP.h"
+#include "../../include/util/XStringUtil.h"
 
-namespace XASIO
+namespace XGAME
 {
 #define TIEMR_INTERVAL		50
 	//-----------------------------

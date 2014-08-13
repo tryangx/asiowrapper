@@ -4,7 +4,7 @@
 
 #include "XAsioBase.h"
 
-namespace XASIO
+namespace XGAME
 {
 	class XAsioTimer
 	{

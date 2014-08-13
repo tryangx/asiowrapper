@@ -4,7 +4,7 @@
 
 #include <boost/container/list.hpp>
 
-namespace XASIO
+namespace XGAME
 {
 	//---------------------------
 	// ∂‘œÛ≥ÿ

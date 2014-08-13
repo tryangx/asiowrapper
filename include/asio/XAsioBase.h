@@ -37,7 +37,7 @@ using namespace boost::system;
 
 //-------------------------------------------------------------
 
-namespace XASIO
+namespace XGAME
 {
 #ifndef UNIFIED_OUT_BUF_NUM
 #define UNIFIED_OUT_BUF_NUM		2048

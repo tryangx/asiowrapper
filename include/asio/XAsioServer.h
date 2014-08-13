@@ -7,7 +7,7 @@
 
 #include <unordered_map>
 
-namespace XASIO
+namespace XGAME
 {
 	class XServer;
 	class XServerSession;

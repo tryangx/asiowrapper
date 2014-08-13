@@ -3,7 +3,7 @@
 #include "XAsioInterface.h"
 #include "XAsioSession.h"
 
-namespace XASIO
+namespace XGAME
 {
 #define	DEFAULT_READ_BYTES		512
 

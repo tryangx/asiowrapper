@@ -6,7 +6,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 
-namespace XASIO
+namespace XGAME
 {
 #define DEFAULT_XASIO_PORT		7777
 

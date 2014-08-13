@@ -9,7 +9,7 @@
 #include "XAsioHelper.h"
 #include "XAsioPackage.h"
 
-namespace XASIO
+namespace XGAME
 {
 	/**
 	 * 客户端接口声明

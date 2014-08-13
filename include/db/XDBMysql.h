@@ -13,7 +13,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/function.hpp>
 
-namespace XMYSQL
+namespace XGAME
 {
 	using namespace sql;
 	using namespace boost;

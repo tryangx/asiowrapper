@@ -4,7 +4,7 @@
 
 #pragma pack( 1 )
 
-namespace XASIO
+namespace XGAME
 {
 	//消息最大长度
 #define MAX_PACKAGE_LEN			4096

@@ -1,6 +1,6 @@
 #include "../../include/db/XDBMysql.h"
 
-namespace XMYSQL
+namespace XGAME
 {
 #define CATCH_SQL_EXCEPTION		\
 	catch( SQLException& e ) { onLog( e.what() ); }\

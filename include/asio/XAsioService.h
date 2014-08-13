@@ -14,7 +14,7 @@
 
 #include "XAsioBase.h"
 
-namespace XASIO
+namespace XGAME
 {
 #define DEFAULT_POOL_SIZE				8
 

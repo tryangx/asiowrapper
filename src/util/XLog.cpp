@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <string>
 
-namespace XASIO
+namespace XGAME
 {
 	//-----------------------------
 	/**
