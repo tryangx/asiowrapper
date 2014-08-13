@@ -1,7 +1,9 @@
 #include "../../include/asio/XAsioClient.h"
 #include "../../include/asio/XAsioHelper.h"
+#include "../../include/util/XStringUtil.h"
+#include "../../include/asio/XAsioStat.h"
 
-namespace XASIO
+namespace XGAME
 {
 #define CONNECT_TIMEOUT_SECOND		10
 
@@ -208,6 +210,8 @@ namespace XASIO
 			}			
 			send( buff );
 			recv();
+			
+			XAsioStatAgent::getConstInstance().recv( buff.getDataSize() );
 			m_staSizeRecv += buff.getDataSize();
 		}
 		else
@@ -251,11 +255,13 @@ namespace XASIO
 	{
 		if ( !m_bIsConnected )
 		{
+/*
 			if ( err )
 			{
 				onLog( err.message().c_str() );
 			}
 			else
+*/
 			{
 				disconnect();
 			}

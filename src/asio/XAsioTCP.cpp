@@ -1,6 +1,7 @@
 #include "../../include/asio/XAsioTCP.h"
+#include "../../include/util/XStringUtil.h"
 
-namespace XASIO
+namespace XGAME
 {
 #define TIEMR_INTERVAL		50
 	//-----------------------------
@@ -264,7 +265,7 @@ namespace XASIO
 
 	void XAsioTCPClient::onResolveCallback( const boost::system::error_code& err, boost::asio::ip::tcp::resolver::iterator it )
 	{
-		if ( err ) 
+		if ( err )
 		{
 			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
 		}

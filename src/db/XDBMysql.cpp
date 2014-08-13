@@ -1,13 +1,13 @@
 #include "../../include/db/XDBMysql.h"
 
-namespace XMYSQL
+namespace XGAME
 {
 #define CATCH_SQL_EXCEPTION		\
-	catch ( SQLException& e ) { onLog( e.what() ); }\
-	catch ( std::runtime_error& e ) { onLog( e.what() ); }
+	catch( SQLException& e ) { onLog( e.what() ); }\
+	catch( ... ) {}
 
 	XDBMysql::XDBMysql() : m_pDriver( NULL ), m_pSavepoint( NULL ), m_pConnection( NULL ),
-		m_iCurConnect( 0 ), m_iMaxConnect( 1 )
+		m_iCurConnect( 0 ), m_iMaxConnect( 1 ), m_funcLogHandler( NULL )
 	{
 	}
 	
@@ -29,16 +29,20 @@ namespace XMYSQL
 			return getConnection() != NULL;
 		}
 		CATCH_SQL_EXCEPTION
-		return true;
+		return false;
 	}
 
 	void XDBMysql::selectSchema( const char* pSchemaName )
 	{
 		m_sSchema = pSchemaName;
-		if ( m_pConnection )
+		try
 		{
-			m_pConnection->setSchema( m_sSchema.c_str() );
+			if ( m_pConnection )
+			{
+				m_pConnection->setSchema( m_sSchema.c_str() );
+			}
 		}
+		CATCH_SQL_EXCEPTION
 	}
 
 	void XDBMysql::close()
@@ -216,7 +220,7 @@ namespace XMYSQL
 		{
 			return NULL;
 		}
-		Connection* pConn;
+		Connection* pConn = NULL;
 		try
 		{
 			pConn = m_pDriver->connect( m_sAddress, m_sUserName, m_sPassword );
@@ -300,8 +304,7 @@ namespace XMYSQL
 			{
 				pConnect->close();
 			}
-			catch ( SQLException& e ) { onLog( e.what() ); }
-			catch ( std::exception& e ) { onLog( e.what() ); }
+			CATCH_SQL_EXCEPTION
 		}
 	}
 	void XDBMysql::destroyPool()
@@ -317,5 +320,9 @@ namespace XMYSQL
 	}
 	void XDBMysql::onLog( const char* pLog )
 	{
+		if ( m_funcLogHandler != NULL )
+		{
+			m_funcLogHandler( pLog );
+		}
 	}
 }

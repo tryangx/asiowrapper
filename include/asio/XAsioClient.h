@@ -5,7 +5,7 @@
 
 #include "XAsioTCP.h"
 
-namespace XASIO
+namespace XGAME
 {
 	class XClient
 	{

@@ -7,7 +7,7 @@
 #include "XAsioHelper.h"
 #include <boost/array.hpp>
 
-namespace XASIO
+namespace XGAME
 {
 	//是否使用固定的接收缓存
 	//开启后将会使用预分配的缓存接收数据，避免内存碎片

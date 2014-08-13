@@ -1,6 +1,6 @@
 #include "../../include/asio/XAsioService.h"
 
-namespace XASIO
+namespace XGAME
 {
 	//线程中服务启动停止的间隔时间
 #define XASIO_SERVICE_THREAD_INTERVAL		50
@@ -188,7 +188,7 @@ namespace XASIO
 		m_srvContainer.splice( std::end( tempCont ), m_srvContainer );
 		lock.unlock();
 
-		XASIO::forEachAll( tempCont, boost::bind(&XAsioService::stopAndFree, this, _1) );
+		XGAME::forEachAll( tempCont, boost::bind(&XAsioService::stopAndFree, this, _1) );
 	}
 
 	void XAsioService::registerService( SERVICE_TYPE service )

@@ -1,7 +1,8 @@
 #include "../../include/asio/XAsioServer.h"
 #include "../../include/asio/XAsioBase.h"
+#include "../../include/util/XStringUtil.h"
 
-namespace XASIO
+namespace XGAME
 {
 #define MAX_SERVICE_THREAD_NUM		4
 

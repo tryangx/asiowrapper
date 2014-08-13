@@ -3,7 +3,7 @@
 #include <string>
 #include <boost/thread/mutex.hpp>
 
-namespace XASIO
+namespace XGAME
 {
 	using namespace boost;
 	

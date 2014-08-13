@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <string>
 
-namespace XASIO
+namespace XGAME
 {
 	//-----------------------------
 	/**
@@ -201,7 +201,7 @@ namespace XASIO
 		mutex::scoped_lock lock( m_mutex );				
 		va_list args;
 		va_start( args, pszFormat );
-		vsnprintf_s( m_szText, MAX_LOG_BUFFER, pszFormat, args );
+		vsnprintf( m_szText, MAX_LOG_BUFFER, pszFormat, args );
 		va_end(args);
 
 		updateLogFileName();

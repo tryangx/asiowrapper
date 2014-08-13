@@ -1,7 +1,8 @@
 #include "../../include/asio/XAsioUDP.h"
+#include "../../include/util/XStringUtil.h"
 #include <boost/lexical_cast.hpp>
 
-namespace XASIO
+namespace XGAME
 {
 	UdpSessionPtr XAsioUDPSession::create( XAsioService& io )
 	{

@@ -1,6 +1,7 @@
 #include "../../include/asio/XAsioSession.h"
+#include "../../include/util/XStringUtil.h"
 
-namespace XASIO
+namespace XGAME
 {
 	//-------------------------------------------
 	//	会话接口实现

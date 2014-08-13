@@ -8,11 +8,12 @@
 #include <cppconn/prepared_statement.h>
 #include <cppconn/metadata.h>
 #include <cppconn/exception.h>
-#include <boost/unordered_map.hpp>
 #include <list>
+#include <boost/unordered_map.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/function.hpp>
 
-namespace XMYSQL
+namespace XGAME
 {
 	using namespace sql;
 	using namespace boost;
@@ -64,8 +65,7 @@ namespace XMYSQL
 		 * 主要用于select
 		 */
 		ResultSet*	query( const char* pCmd, Connection* pConn = NULL );
-		
-		
+				
 		/**
 		 * 创建保存点
 		 * innoDB
@@ -89,8 +89,10 @@ namespace XMYSQL
 		 */
 		PreparedStatement*	getPreparestatement( int type );
 
-	protected:
+		template< typename HANDLER, typename OBJECT >
+		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
 
+	protected:
 		Statement*	createStatement( Connection* pConn = NULL );
 
 		Connection*	getPoolConnection();
@@ -126,5 +128,9 @@ namespace XMYSQL
 		typedef boost::unordered_map<int,PreparedStatement*>	MAP_PREPARESTATEMENT;
 		MAP_PREPARESTATEMENT	m_mapPrepareStatment;
 		boost::mutex			m_mutexPrepareStatment;
+		
+		//std::function<void( const char* )>	m_funcLogHandler;
+
+		boost::function<void( const char* )>	m_funcLogHandler;
 	};
 }

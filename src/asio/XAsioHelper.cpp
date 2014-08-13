@@ -1,22 +1,8 @@
 #include "../../include/asio/XAsioHelper.h"
 
-namespace XASIO
+namespace XGAME
 {
 #define MAX_DEBUG_STRING_LENGTH			2048
-
-#define MAX_LOG_BUFFER		4096
-
-	char* outputString( const char* pszFormat, ... )
-	{
-		static boost::mutex	_mutex;
-		static char text[MAX_LOG_BUFFER];
-		mutex::scoped_lock lock( _mutex );
-		va_list args;
-		va_start( args, pszFormat );
-		vsnprintf_s( text, MAX_LOG_BUFFER, pszFormat, args );
-		va_end( args );
-		return text;
-	}
 
 	//-----------------------------------------
 	//  ¶¨Ê±Æ÷
