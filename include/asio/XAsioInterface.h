@@ -7,7 +7,7 @@
 
 #include "XAsioService.h"
 #include "XAsioHelper.h"
-#include "XAsioPackage.h"
+#include "XAsioPacket.h"
 
 namespace XGAME
 {

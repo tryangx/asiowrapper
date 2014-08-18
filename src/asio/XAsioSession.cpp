@@ -33,7 +33,7 @@ namespace XGAME
 	{
 		if ( err ) 
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
 		else
@@ -51,7 +51,7 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
 		else

@@ -4,9 +4,13 @@
 #pragma once
 
 #include "XAsioTCP.h"
+#include "XAsioStat.h"
+#include "../util/XSingleton.h"
 
 namespace XGAME
 {
+	typedef XSingleton<XAsioStat>	XAsioStatClientAgent;
+
 	class XClient
 	{
 	public:
@@ -15,29 +19,12 @@ namespace XGAME
 		 */
 		static void		setLog( std::function<void( const char* )> handler );
 		static void		disableLog();
-
-		/**
-		 * 得到所有客户端发送的长度
-		 */
-		static size_t	getSendSize();
-		/**
-		 * 得到所有客户端接收的长度
-		 */
-		static size_t	getRecvSize();
-
+		
 	protected:
 		static void		onLogHandler( const char* pLog );
 				
 	protected:
 		static std::function<void( const char* )>	m_sfuncLogHandler;
-		/**
-		 * 所有客户端发送消息的长度
-		 */
-		static size_t		m_staSizeSend;
-		/**
-		 * 所有客户端接收消息的长度
-		 */
-		static size_t		m_staSizeRecv;
 
 	public:
 		XClient( XAsioService& io );
@@ -73,7 +60,6 @@ namespace XGAME
 		/**
 		 * 发送
 		 */
-		void		send( std::string& content );
 		void		send( XAsioBuffer& buff );
 
 		/**

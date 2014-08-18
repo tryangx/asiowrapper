@@ -5,5 +5,5 @@
 #pragma once
 
 #include "XAsioTimer.h"
-#include "XAsioPackage.h"
+#include "XAsioPacket.h"
 #include "XAsioPool.h"

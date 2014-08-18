@@ -7,7 +7,7 @@
 namespace XGAME
 {
 	//消息最大长度
-#define MAX_PACKAGE_LEN			4096
+#define MAX_PACKET_SIZE			4096
 	
 	//------------------------------
 	// 临时缓存	
@@ -16,7 +16,7 @@ namespace XGAME
 	private:
 		struct stBuffInfo
 		{
-			stBuffInfo( void* pData, size_t size, bool bOwnsData );
+			stBuffInfo( void* pData, size_t allocateSize, size_t dataSize, bool bOwnsData );
 			~stBuffInfo();
 
 			void*		_pData;
@@ -33,7 +33,16 @@ namespace XGAME
 		XAsioBuffer( void* pBuffer, size_t size );
 		XAsioBuffer( size_t size );
 		~XAsioBuffer();
-		
+				
+		/**
+		 * 获取数据所有权
+		 */
+		void		attach();
+		/**
+		 * 释放数据所有权
+		 */
+		void		detach();
+
 		/**
 		 * 获取数据
 		 */
@@ -54,45 +63,95 @@ namespace XGAME
 		void		setDataSize( size_t size );
 		/**
 		 * 重新分配空间
+		 * @return	返回分配是否成功
 		 */
-		void		resize( size_t newSize );
+		bool		resize( size_t newSize );
 
 		/**
-		 * 浅表复制，不拥有具备所有权（即需要手动删除）
+		 * 浅表复制，用于空数据情况下复制其它来源的数据
+		 * 不拥有具备所有权（即需要手动删除）
 		 */
 		void		clone( void* pData, size_t size );
 
 		/**
-		 * (深度)复制数据，拥有所有权（不需要手动删除）
+		 * (深度)复制全部数据
+		 * 拥有所有权（不需要手动删除）
 		 */
 		void		copy( const void* pData, size_t size );
 
 		/**
-		 * (深度)复制缓存，拥有所有权（不需要手动删除）
+		 * (深度)复制全部缓存
+		 * 拥有所有权（不需要手动删除）
 		 */
 		void		copy( XAsioBuffer& buffer );
+				
+		/**
+		 * 追加数据
+		 */
+		void		writeBuffer( XAsioBuffer& buffer );		
+		void		writeString( std::string& str );
+		void		writeData( const char* pData, size_t size );
 
 		/**
-		 * 转换为字符串
-		 */
-		void		convertToString( std::string& str );
-		/**
-		 * 从字符串转换为缓存
-		 */
-		void		convertFromString( std::string& str );
+		 * 序列化输入数据
+		 */		
+		XAsioBuffer& operator << ( const std::string &str );
+		XAsioBuffer& operator << ( const char* pStr );
 
+		template<typename TYPE>
+		XAsioBuffer& operator << ( const TYPE &value );
+		
 		/**
-		 * 获取数据所有权
+		 * 输出数据
 		 */
-		void		attach();
-		/**
-		 * 释放数据所有权
-		 */
-		void		detach();
+		void		readBuffer( XAsioBuffer& buffer );		
+		void		readString( std::string& str );
+		void		readData( const char* pData, size_t size );
+
+		//序列化输出
+		XAsioBuffer& operator >> ( std::string &str );
+		XAsioBuffer& operator >> ( const char* pStr );
+
+		template<typename TYPE>
+		XAsioBuffer& operator >> ( TYPE &value );
+	
+	private:
+		size_t getRemainSize();
 
 	private:
 		stBuffInfo	m_bufData;
+		size_t		m_iCursorPos;
 	};
+
+	template<typename TYPE>
+	XAsioBuffer& XAsioBuffer::operator << ( const TYPE &value )
+	{
+		if ( m_bufData._dataSize + sizeof(TYPE) > MAX_PACKET_SIZE )
+		{
+			return *this;
+		}
+		resize( m_bufData._dataSize + sizeof(TYPE) );
+		try
+		{
+			char* pCur = (char*)m_bufData._pData + m_bufData._dataSize;
+			*(TYPE*)pCur = value;
+		}
+		catch(...) {}
+		m_bufData._dataSize += sizeof(TYPE);
+		return *this;
+	}
+	template<typename TYPE>
+	XAsioBuffer& XAsioBuffer::operator >> ( TYPE &value )
+	{
+		assert( getRemainSize() >= sizeof(TYPE) );
+		if ( getRemainSize() >= sizeof(TYPE) )
+		{
+			char* pCur = (char*)m_bufData._pData + m_iCursorPos;
+			value = *(TYPE*)pCur;
+			m_iCursorPos += sizeof(TYPE);
+		}
+		return *this;
+	}
 
 	//-------------------------------------------
 	//  包头
@@ -114,9 +173,12 @@ namespace XGAME
 		bool			hasFlag( int flaginx );
 		void			setFlag( int flagInx );
 
-		void			parseFromBuffer( XAsioBuffer& buff );
-
+		/**
+		 * 设置消息类型
+		 */
 		void			setType( unsigned long type );
+
+		void			parseFromBuffer( XAsioBuffer& buff );
 
 	public:
 		//标志
@@ -146,8 +208,8 @@ namespace XGAME
 		void			parseFromBuffer( XAsioBuffer& buff );
 		
 	public:
-		int					i;
-		char				info[32];
+		int				i;
+		char			info[32];
 	};
 
 	//------------------------------
@@ -157,76 +219,60 @@ namespace XGAME
 	public:
 		XAsioSendPackage( unsigned long type, char* pBuf = NULL )
 		{
-			set( type, pBuf );
-		};
+			m_pMsgBuf = pBuf ? pBuf : m_tempBuffer;
+			m_pHeader = (XAsioPackageHeader*)m_pMsgBuf;
 
-		template <typename T>
-		XAsioSendPackage& operator << ( const T &value )
-		{
-			assert( m_pHeader->m_dwSize + sizeof(T) <= MAX_PACKAGE_LEN );
-			if ( m_pHeader->m_dwSize + sizeof(T) <= MAX_PACKAGE_LEN )
-			{
-				*(T*)(&((char*)m_pHeader)[m_pHeader->m_dwSize]) = value;
-				m_pHeader->m_dwSize += sizeof(T);
-			}
-			return *this;
-		};
+			m_pHeader->setType( type );
+			m_pHeader->m_dwSize = XAsioPackageHeader::getHeaderSize();
+		}
 
-		XAsioSendPackage& operator << ( const std::string& str )
-		{
-			unsigned short size = (unsigned short)str.size();
-			if ( size > MAX_PACKAGE_LEN )
-			{
-				assert( 0 );
-				return *this;
-			}
-			assert( m_pHeader->m_dwSize + sizeof(unsigned short) + size <= MAX_PACKAGE_LEN );
-			if ( m_pHeader->m_dwSize + sizeof(unsigned short) + size <= MAX_PACKAGE_LEN )
-			{	
-				*this << size;
-				memcpy( &((char*)m_pHeader)[m_pHeader->m_dwSize],str.c_str(), size );
-				m_pHeader->m_dwSize += size;
-			}
-			return *this;
-		};
+		_inline int		getCurPos() { return m_pHeader->m_dwSize; }
+
+		_inline char*	getCurPtr() { return &m_pMsgBuf[getCurPos()]; };
 
 		void	set( char* pBuf )
 		{ 
-			if ( pBuf != NULL )
-			{
-				m_pMsgBuf = pBuf;
-			}
+			m_pMsgBuf = pBuf ? pBuf : m_pMsgBuf;
 			m_pHeader = (XAsioPackageHeader*)m_pMsgBuf;
-		};
-
-		void	set( unsigned long type, char* pBuf ) 
-		{ 
-			if ( pBuf == NULL )
-			{
-				m_pMsgBuf = m_tempBuffer;
-			}
-			else
-			{
-				m_pMsgBuf = pBuf;
-			}
-			m_pHeader = (XAsioPackageHeader*)m_pMsgBuf;
-			m_pHeader->setType( type );
-			m_pHeader->m_dwSize = XAsioPackageHeader::getHeaderSize();
 		};
 
 		void	reset()
 		{
 			m_pHeader->m_dwSize = XAsioPackageHeader::getHeaderSize();
 			m_pHeader->setType( m_pHeader->m_dwType );
-		};
+		}
 
-		char*	getCurPtr()
+		template <typename T>
+		XAsioSendPackage& operator << ( const T &value )
 		{
-			return &m_pMsgBuf[m_pHeader->m_dwSize];
-		};
+			assert( getCurPos() + sizeof(T) <= MAX_PACKET_SIZE );
+			if ( getCurPos() + sizeof(T) <= MAX_PACKET_SIZE )
+			{
+				*(T*)(&((char*)m_pHeader)[getCurPos()]) = value;
+				m_pHeader->m_dwSize += sizeof(T);
+			}
+			return *this;
+		}
+
+		XAsioSendPackage& operator << ( const std::string& str )
+		{
+			unsigned short size = (unsigned short)str.size();
+			if ( size > MAX_PACKET_SIZE )
+			{
+				return *this;
+			}
+			assert( getCurPos() + sizeof(unsigned short) + size <= MAX_PACKET_SIZE );
+			if ( getCurPos() + sizeof(unsigned short) + size <= MAX_PACKET_SIZE )
+			{	
+				*this << size;
+				memcpy_s( &((char*)m_pHeader)[getCurPos()], MAX_PACKET_SIZE, str.c_str(), size );
+				m_pHeader->m_dwSize += size;
+			}
+			return *this;
+		}
 
 	private:
-		char					m_tempBuffer[MAX_PACKAGE_LEN];
+		char					m_tempBuffer[MAX_PACKET_SIZE];
 		char*					m_pMsgBuf;
 		XAsioPackageHeader*		m_pHeader;
 	};
@@ -239,13 +285,8 @@ namespace XGAME
 		XAsioRecvPackage( const char* pBuf )
 		{ 
 			reset( pBuf );
-		};
-
-		unsigned long getRemainSize()
-		{
-			return m_pHeader->m_dwSize - ( m_pCurPtr - ((char*)m_pHeader) );
 		}
-		
+				
 		void	rollback()
 		{
 			m_pCurPtr = (char*)m_pHeader + XAsioPackageHeader::getHeaderSize();
@@ -269,9 +310,9 @@ namespace XGAME
 				m_pCurPtr += sizeof(T);
 			}
 			return *this;
-		};
+		}
 
-		XAsioRecvPackage& operator >> ( std::string &str )
+		XAsioRecvPackage& operator >> ( std::string& str )
 		{
 			assert( getRemainSize() >= sizeof(unsigned short) );
 			
@@ -282,18 +323,21 @@ namespace XGAME
 			unsigned short size;
 			*this >> size;
 
-			assert( getRemainSize() >= size && size < MAX_PACKAGE_LEN );
-			if( getRemainSize() < size || size > MAX_PACKAGE_LEN )
+			assert( getRemainSize() >= size && size < MAX_PACKET_SIZE );
+			if( getRemainSize() < size || size > MAX_PACKET_SIZE )
 			{
 				return *this;
 			}
-			char temp[MAX_PACKAGE_LEN + 1];
-			memcpy_s( temp, MAX_PACKAGE_LEN + 1, m_pCurPtr, size );
+			char temp[MAX_PACKET_SIZE + 1];
+			memcpy_s( temp, MAX_PACKET_SIZE + 1, m_pCurPtr, size );
 			temp[size] = '\0';
 			str = temp;
 			m_pCurPtr += size;
 			return *this;
-		};
+		}
+
+	private:
+		unsigned long getRemainSize() { return m_pHeader->m_dwSize - ( m_pCurPtr - ((char*)m_pHeader) ); }
 
 	private:
 		const char*				m_pCurPtr;

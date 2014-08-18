@@ -189,7 +189,7 @@ namespace XGAME
 		mutex				m_srvMutex;
 
 		io_service			m_ioService;
-		io_service::work	m_ioServiceWork;
+		boost::shared_ptr<io_service::work>		m_ptrIoServiceWork;
 
 		bool				m_bIsStarted;
 

@@ -84,8 +84,8 @@ namespace XGAME
 		 */
 		unsigned int						m_sessionId;
 		
-		char								m_readBuffer[MAX_PACKAGE_LEN];
-		char								m_sendBuffer[MAX_PACKAGE_LEN];
+		char								m_readBuffer[MAX_PACKET_SIZE];
+		char								m_sendBuffer[MAX_PACKET_SIZE];
 
 		std::function<void( XAsioBuffer )>	m_funcReadHandler;
 		std::function<void( size_t )>		m_funcWriteHandler;

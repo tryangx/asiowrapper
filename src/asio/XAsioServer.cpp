@@ -11,18 +11,13 @@ namespace XGAME
 	//---------------------------
 	// 服务会话
 	std::function<void( const char* )>	XServerSession::m_sfuncLogHandler = nullptr;
-	size_t XServerSession::m_staSizeRecv = 0;
-	size_t XServerSession::m_staSizeSend = 0;
-
+	
 	ServerSessionPtr XServerSession::create( TcpSessionPtr ptr ) { return ServerSessionPtr( new XServerSession( ptr ) )->shared_from_this(); }
 
 	void XServerSession::setLog( std::function<void( const char* )> handler ) { m_sfuncLogHandler = handler; }	
 	void XServerSession::disableLog() { m_sfuncLogHandler = nullptr; }
 	void XServerSession::onLogHandler( const char* pLog ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( pLog ); } }
-	
-	size_t XServerSession::getRecvSize() { return m_staSizeRecv; }
-	size_t XServerSession::getSendSize() { return m_staSizeSend; }
-	
+		
 	XServerSession::XServerSession() : m_tcpSession( nullptr ), m_bIsStarted( false ), m_bReadHeader( false ) {}
 	XServerSession::XServerSession( TcpSessionPtr ptr ) : m_tcpSession( ptr ), m_bIsStarted( false ), m_bReadHeader( false ) {}
 
@@ -115,13 +110,13 @@ namespace XGAME
 		{
 			m_bReadHeader = !m_bReadHeader;
 			recv();	
-		}		
-		m_staSizeRecv += buff.getDataSize();
+		}
+		XAsioStatServerAgent::getMutableInstance()->recv( buff.getDataSize() );
 	}
 
 	void XServerSession::onWrite( size_t bytesTransferred )
 	{
-		m_staSizeSend += bytesTransferred;
+		XAsioStatServerAgent::getMutableInstance()->send( bytesTransferred );
 	}
 
 	void XServerSession::onClose()
@@ -131,7 +126,8 @@ namespace XGAME
 
 	void XServerSession::onLog( const char* pLog )
 	{
-		onLogHandler( outputString( "[%d]%s", m_tcpSession ? m_tcpSession->getSessionId() : -1, pLog ) );
+		std::string s = pLog;
+		onLogHandler( outputString( "[%d]%s", m_tcpSession ? m_tcpSession->getSessionId() : -1, s.c_str() ) );
 	}
 
 	void XServerSession::sendTestPackage()
@@ -345,6 +341,7 @@ namespace XGAME
 		ptr->init( session );
 		m_mapSession.insert( std::make_pair( session->getSessionId(), ptr ) );
 
+		XAsioStatServerAgent::getMutableInstance()->connect();
 		onLog( outputString( "accept [ connect:%d pool:%d temp:%d ]", m_mapSession.size(), getSize(), getClosedSize() ) );
 	}
 
@@ -365,6 +362,7 @@ namespace XGAME
 			//releaseObject( it->second );
 			m_mapSession.erase( it );
 		}
+		XAsioStatServerAgent::getMutableInstance()->disconnect();
 		onLog( outputString( "session %d close [ pool:%d temp:%d ]", id, getSize(), getClosedSize() ) );
 	}
 

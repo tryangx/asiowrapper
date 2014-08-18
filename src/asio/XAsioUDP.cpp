@@ -34,7 +34,7 @@ namespace XGAME
 
 	void XAsioUDPSession::read( size_t bufferSize )
 	{
-		if ( bufferSize > MAX_PACKAGE_LEN )
+		if ( bufferSize > MAX_PACKET_SIZE )
 		{
 			throw std::runtime_error( "read size is out of buffer length");
 			return;
@@ -46,7 +46,7 @@ namespace XGAME
 	void XAsioUDPSession::write( XAsioBuffer& buffer )
 	{
 		size_t size = buffer.getDataSize();
-		memcpy_s( (void*)m_sendBuffer, MAX_PACKAGE_LEN, buffer.getData(), size );
+		memcpy_s( (void*)m_sendBuffer, MAX_PACKET_SIZE, buffer.getData(), size );
 		m_socket->async_send( boost::asio::buffer( m_sendBuffer, size ),
 			boost::bind( &XAsioUDPSession::onWriteCallback, shared_from_this(), boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred ) );
@@ -105,7 +105,7 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message().c_str() ) );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
 		}
 		else
 		{
@@ -173,7 +173,7 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message().c_str() ) );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
 		}
 		else if ( m_funcConnectHandler != nullptr )
 		{

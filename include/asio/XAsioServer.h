@@ -4,6 +4,8 @@
 #pragma once
 
 #include "XAsioTCP.h"
+#include "XAsioStat.h"
+#include "../util/XSingleton.h"
 
 #include <unordered_map>
 
@@ -13,6 +15,8 @@ namespace XGAME
 	class XServerSession;
 
 	typedef boost::shared_ptr<class XServerSession>		ServerSessionPtr;
+	
+	typedef XSingleton<XAsioStat>	XAsioStatServerAgent;
 
 	//---------------------------
 	//	连接到服务器的会话
@@ -27,19 +31,12 @@ namespace XGAME
 		static void		setLog( std::function<void( const char* )> handler );
 		static void		disableLog();
 
-		/**
-		 * 得到所有会话接收的消息长度
-		 */
-		static size_t	getRecvSize();
-		static size_t	getSendSize();
-
 	protected:
 		static void		onLogHandler( const char* pLog );
 
 	protected:
 		static std::function<void( const char* )>	m_sfuncLogHandler;
-		static size_t		m_staSizeRecv;
-		static size_t		m_staSizeSend;
+		static XAsioStat							m_sAsioStat;
 
 	public:
 		XServerSession();
@@ -107,8 +104,6 @@ namespace XGAME
 		 * 发送测试用
 		 */
 		boost::shared_ptr<boost::thread>		m_sendThread;
-
-		//friend				XServer;
 	};
 
 	//  服务器
@@ -156,7 +151,7 @@ namespace XGAME
 		/**
 		 * 发送给全体
 		 */
-		void		sendToAll( XAsioBuffer& buff );		
+		void		sendToAll( XAsioBuffer& buff );
 		/**
 		 * 发送给指定队列
 		 */
@@ -178,10 +173,10 @@ namespace XGAME
 		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
 		
 	protected:
-		unsigned int	queryValidId();
-
 		ServerSessionPtr	createSession();
 
+		unsigned int		queryValidId();
+		
 		void		onStartServer();
 		void		onAccept( TcpSessionPtr );
 		void		onCancel();

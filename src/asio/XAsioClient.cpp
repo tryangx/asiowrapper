@@ -6,18 +6,12 @@
 namespace XGAME
 {
 #define CONNECT_TIMEOUT_SECOND		10
-
-	size_t XClient::m_staSizeSend = 0;
-	size_t XClient::m_staSizeRecv = 0;
-
+	
 	std::function<void( const char* )>	XClient::m_sfuncLogHandler = nullptr;
 
 	void XClient::setLog( std::function<void( const char* )> handler ) { m_sfuncLogHandler = handler; }	
 	void XClient::disableLog() { m_sfuncLogHandler = nullptr; }
 	void XClient::onLogHandler( const char* pLog ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( pLog ); } }
-
-	size_t XClient::getSendSize() { return m_staSizeSend; }
-	size_t XClient::getRecvSize() { return m_staSizeRecv; }
 
 	XClient::XClient( XAsioService& io ) : m_service( io ),
 		m_iPort( DEFAULT_XASIO_PORT ), m_bInit( false ), m_bIsConnected( false ), m_id( 0 ),
@@ -117,21 +111,7 @@ namespace XGAME
 			m_sendThread = boost::shared_ptr<boost::thread>( new boost::thread( boost::bind( &XClient::sendThread, this ) ) );
 		}
 	}
-	
-	void XClient::send( std::string& content )
-	{
-		if ( !m_bInit || !m_bIsConnected )
-		{
-			return;
-		}
-		if ( m_ptrSession && m_ptrSession->isOpen() )
-		{
-			XAsioBuffer buff;
-			buff.convertFromString( content );
-			m_ptrSession->write( buff );
-		}
-	}
-	
+		
 	void XClient::send( XAsioBuffer& buff )
 	{
 		if ( !m_bInit || !m_bIsConnected )
@@ -196,7 +176,7 @@ namespace XGAME
 
 		recv();
 
-		onLog( "Client connect server!" );
+		//onLog( "Client connect server!" );
 	}
 
 	class test
@@ -217,8 +197,7 @@ namespace XGAME
 			send( buff );
 			recv();
 			
-			XAsioStatAgent::getMutableInstance()->recv( buff.getDataSize() );
-			m_staSizeRecv += buff.getDataSize();
+			XAsioStatClientAgent::getMutableInstance()->recv( buff.getDataSize() );
 		}
 		else
 		{
@@ -232,13 +211,13 @@ namespace XGAME
 			}
 			m_bReadHeader = !m_bReadHeader;
 			recv();
-			m_staSizeRecv += buff.getDataSize();
+			XAsioStatClientAgent::getMutableInstance()->recv( buff.getDataSize() );
 		}
 	}
 
 	void XClient::onSend( size_t bytesTransferred )
 	{
-		m_staSizeSend += bytesTransferred;
+		XAsioStatClientAgent::getMutableInstance()->send( bytesTransferred );
 	}
 
 	void XClient::onResolve()
@@ -253,21 +232,19 @@ namespace XGAME
 	
 	void XClient::onLog( const char* pLog )
 	{
-		std::string log = outputString( "[%d]%s", m_id, pLog );
-		onLogHandler( log.c_str() );
+		std::string log = pLog;
+		onLogHandler( outputString( "[%d]%s", m_id, log.c_str() ) );
 	}
 	
 	void XClient::onConnTimeoutCallback( const boost::system::error_code& err )
 	{
 		if ( !m_bIsConnected )
 		{
-/*
 			if ( err )
 			{
 				onLog( err.message().c_str() );
 			}
 			else
-*/
 			{
 				disconnect();
 			}
@@ -285,7 +262,6 @@ namespace XGAME
 		XAsioPackageHeader header;
 		header.m_dwType = 1;
 		header.m_dwSize = 999;
-		header.m_dwToken = getSendSize();		
 		
 		recv();
 

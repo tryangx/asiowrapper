@@ -115,7 +115,7 @@ namespace XGAME
 	}
 
 	//-------------------------------------------
-	XAsioService::XAsioService() : m_bIsStarted( false ), m_ioServiceWork( getIOService() )
+	XAsioService::XAsioService() : m_bIsStarted( false )
 	{
 	}
 
@@ -144,6 +144,7 @@ namespace XGAME
 	{
 		if ( !isStarted() )
 		{
+			m_ptrIoServiceWork = boost::shared_ptr<io_service::work>( new io_service::work( getIOService() ) );
 			m_ioService.reset();
 			forEachAll( boost::mem_fn( &XAsioInterface::startService ) );
 			runIOService( XASIO_SERVICE_THREAD_NUM );
@@ -154,6 +155,7 @@ namespace XGAME
 	{
 		if ( isStarted() )
 		{
+			m_ptrIoServiceWork.reset();
 			forEachAll( boost::mem_fn( &XAsioInterface::stopService ) );
 			while( isStarted() )
 			{
@@ -166,6 +168,7 @@ namespace XGAME
 	{
 		if ( isStarted() )
 		{
+			m_ptrIoServiceWork.reset();
 			forEachAll( boost::mem_fn( &XAsioInterface::stopService ) );
 
 			int numLoop = XASIO_SERVICE_STOP_COUNTER;

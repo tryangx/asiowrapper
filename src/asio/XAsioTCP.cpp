@@ -59,7 +59,7 @@ namespace XGAME
 	}
 	void XAsioTCPSession::read( size_t bufferSize )
 	{
-		if ( bufferSize > MAX_PACKAGE_LEN )
+		if ( bufferSize > MAX_PACKET_SIZE )
 		{
 			throw std::runtime_error( "read size is out of buffer length" );
 			return;
@@ -121,7 +121,7 @@ namespace XGAME
 		m_isSending = true;
 
 		size_t size = buffer.getDataSize();
-		memcpy_s( (void*)m_sendBuffer, MAX_PACKAGE_LEN, buffer.getData(), size );
+		memcpy_s( (void*)m_sendBuffer, MAX_PACKET_SIZE, buffer.getData(), size );
 		boost::asio::async_write( *m_socket, boost::asio::buffer( m_sendBuffer, size ),
 			m_strand.wrap( boost::bind( &XAsioTCPSession::onWriteCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
@@ -166,7 +166,7 @@ namespace XGAME
 	{
 		if ( err ) 
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}
 		else
@@ -174,7 +174,7 @@ namespace XGAME
 			m_recvSize += bytesTransferred;
 
 			XAsioBuffer buffer;
-			buffer.copy( m_readBuffer, bytesTransferred );
+			buffer.writeData( m_readBuffer, bytesTransferred );
 			if ( m_isSuspendDispatch )
 			{
 				buffer.detach();
@@ -193,7 +193,7 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
 			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
 		}	
 		else
@@ -211,7 +211,7 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", err.value(), err.message() ) );
+			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
 		}
 		ON_CALLBACK_PARAM( m_funcCloseHandler, getSessionId() );
 	}
