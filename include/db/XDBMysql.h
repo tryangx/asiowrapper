@@ -20,10 +20,13 @@ namespace XGAME
 
 #define MAX_DBSQL_LENGTH		4096
 
+	typedef boost::shared_ptr<ResultSet>		RESULTSET_PTR;
+
 	class XDBMysql
 	{
 	public:
 		XDBMysql();
+		~XDBMysql();
 
 		bool		isConnected() const;
 
@@ -33,67 +36,81 @@ namespace XGAME
 		bool		connect( const char* pAddress, const char* pUserName, const char* pPassword );
 
 		/**
-		 * 选择架构
-		 */
-		void		selectSchema( const char* pSchemaName );
-
-		/**
 		 * 关闭连接
 		 */
 		void		close();
 
 		/**
-		 * 获取连接
+		 * 选择架构
 		 */
-		Connection*	getConnection();
+		void		selectSchema( const char* pSchemaName );
+
+		/**
+		 * 设置是否自动提交
+		 */
+		void		setAutoCommit( Connection* pConn, bool isAutoCommit );
+		
+		/**
+		 * 提交
+		 */
+		void		commit( Connection* pConn );
 
 		/**
 		 * 执行语句
 		 * @param pCmd	执行的语句，insert, update, delete
-		 * @param pConn	默认使用的连接
+		 * @param pConn	使用的连接，默认将从连接池中查找合适的连接
 		 */
 		bool		execute( const char* pCmd, Connection* pConn = NULL );
 
 		/**
 		 * 更新
 		 * create table, drop table, insert, update, delete
+		 * @param pConn	使用的连接，默认将从连接池中查找合适的连接
 		 */
 		int			update( const char* pCmd, Connection* pConn = NULL );
 
 		/**
 		 * 查询
 		 * 主要用于select
+		 * @param pConn	使用的连接，默认将从连接池中查找合适的连接
 		 */
-		ResultSet*	query( const char* pCmd, Connection* pConn = NULL );
-				
+		RESULTSET_PTR	query( const char* pCmd, Connection* pConn = NULL );
+
 		/**
 		 * 创建保存点
 		 * innoDB
 		 */
-		Savepoint*	crateSavePoint( Connection* pConn );
+		Savepoint*	createSavePoint( std::string& sName );
 		/**
 		 * 释放保存点
 		 */
-		void		releaseSavePoint( Connection* pConn, Savepoint* pSavepoint );
+		void		releaseSavePoint( Savepoint* pSavepoint );
 		/**
 		 * 回滚
+		 * 使用主连接进行回滚
 		 */
-		bool		rollback( Connection* pConn, Savepoint* pSavepoint = NULL );		
+		bool		rollback( Savepoint* pSavepoint = NULL );		
 
 		/**
 		 * 创建预处理
+		 * @param pConn 指定连接，默认将从连接池中查找合适的连接
 		 */
-		void		createPreparestatement( int type, const char* pCmd );
+		void		createPreparestatement( int type, const char* pCmd, Connection* pConn = NULL );
 		/**
 		 * 获取预处理
 		 */
 		PreparedStatement*	getPreparestatement( int type );
+				
+		/**
+		 * 获取连接
+		 */
+		Connection*	getConnection();
 
 		template< typename HANDLER, typename OBJECT >
 		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
 
 	protected:
-		Statement*	createStatement( Connection* pConn = NULL );
+		Statement*	createStatement( Connection*& pConn );
 
 		Connection*	getPoolConnection();
 		Connection*	createConnection();

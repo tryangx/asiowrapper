@@ -10,7 +10,21 @@ namespace XGAME
 		m_iCurConnect( 0 ), m_iMaxConnect( 1 ), m_funcLogHandler( NULL )
 	{
 	}
-	
+
+	XDBMysql::~XDBMysql()
+	{
+		MAP_PREPARESTATEMENT::iterator it;
+		for ( it = m_mapPrepareStatment.begin(); it != m_mapPrepareStatment.end(); it++ )
+		{
+			PreparedStatement* p = it->second;
+			delete p;
+		}
+		m_mapPrepareStatment.clear();
+
+		close();
+	}
+
+
 	bool XDBMysql::isConnected() const { return m_pDriver != NULL; }
 
 	bool XDBMysql::connect( const char* pAddress, const char* pUserName, const char* pPassword )
@@ -45,25 +59,46 @@ namespace XGAME
 		CATCH_SQL_EXCEPTION
 	}
 
+	void XDBMysql::setAutoCommit( Connection* pConn, bool isAutoCommit )
+	{
+		try
+		{
+			if ( pConn )
+			{
+				pConn->setAutoCommit( isAutoCommit );
+			}
+		}
+		CATCH_SQL_EXCEPTION
+	}
+
 	void XDBMysql::close()
 	{
-		if ( isConnected() )
+		mutex::scoped_lock lock( m_mutexConn );
+		try
 		{
-			mutex::scoped_lock lock( m_mutexConn );
-			try
+			LIST_CONNECTION::iterator it;
+			for ( it = m_listConnect.begin(); it != m_listConnect.end(); it++ )
 			{
-				LIST_CONNECTION::iterator it;
-				for ( it = m_listConnect.begin(); it != m_listConnect.end(); it++ )
+				Connection* pConn = *it;
+				if ( !pConn->isClosed() )
 				{
-					Connection* pConn = *it;
-					if ( !pConn->isClosed() )
-					{
-						pConn->close();
-					}
+					pConn->close();
 				}
+				delete pConn;
 			}
-			CATCH_SQL_EXCEPTION
+			m_listConnect.clear();
+
+			if ( m_pConnection )
+			{
+				if ( !m_pConnection->isClosed() )
+				{
+					m_pConnection->close();
+				}
+				delete m_pConnection;
+				m_pConnection = NULL;
+			}
 		}
+		CATCH_SQL_EXCEPTION
 	}
 
 	bool XDBMysql::execute( const char* pCmd, Connection* pConn /* = NULL */ )
@@ -80,10 +115,12 @@ namespace XGAME
 		try
 		{
 			bool ret = pState->execute( pCmd );
+			delete pState;
 			releaseConnection( pConn );
 			return ret;
 		}
 		CATCH_SQL_EXCEPTION
+		releaseConnection( pConn );
 		return false;
 	}
 
@@ -101,14 +138,16 @@ namespace XGAME
 		try
 		{
 			int count = pState->executeUpdate( pCmd );
+			delete pState;
 			releaseConnection( pConn );
 			return count;
 		}
 		CATCH_SQL_EXCEPTION
+		releaseConnection( pConn );
 		return 0;
 	}
 
-	ResultSet* XDBMysql::query( const char* pCmd, Connection* pConn /* = NULL */ )
+	RESULTSET_PTR XDBMysql::query( const char* pCmd, Connection* pConn /* = NULL */ )
 	{
 		if ( !pCmd || !isConnected() )
 		{
@@ -122,66 +161,82 @@ namespace XGAME
 		try
 		{
 			ResultSet* pSet = pState->executeQuery( pCmd );
+			delete pState;
 			releaseConnection( pConn );
-			return pSet;
+			return RESULTSET_PTR( pSet );		//need delete manual
 		}
 		CATCH_SQL_EXCEPTION
+		releaseConnection( pConn );
 		return NULL;
+	}
+
+	void XDBMysql::commit( Connection* pConn )
+	{
+		try
+		{
+			if ( pConn )
+			{
+				pConn->commit();
+			}
+		}
+		CATCH_SQL_EXCEPTION
 	}
 	
-	Savepoint* XDBMysql::crateSavePoint( Connection* pConn )
+	Savepoint* XDBMysql::createSavePoint( std::string& sName )
 	{
-		if ( !pConn )
-		{
-			return NULL;
-		}
 		try
 		{
-			return pConn->setSavepoint();
+			Connection* pConn = getConnection();
+			return pConn ? pConn->setSavepoint( sql::SQLString( sName ) ) : NULL;
 		}
 		CATCH_SQL_EXCEPTION
 		return NULL;
 	}
-	bool XDBMysql::rollback( Connection* pConn, Savepoint* pSavepoint /* = NULL */ )
+	bool XDBMysql::rollback( Savepoint* pSavepoint /* = NULL */ )
 	{
-		if ( !pConn )
-		{
-			return false;
-		}
 		try
 		{
-			if ( pSavepoint )
+			Connection* pConn = getConnection();
+			if ( pConn )
 			{
-				pConn->rollback( pSavepoint );
-			}
-			else
-			{
-				pConn->rollback();
+				if ( pSavepoint )
+				{
+					pConn->rollback( pSavepoint );
+				}
+				else
+				{
+					pConn->rollback();
+				}
+				return true;
 			}
 		}
 		CATCH_SQL_EXCEPTION
-		return true;
+		return false;
 	}
-	void XDBMysql::releaseSavePoint( Connection* pConn, Savepoint* pSavepoint )
+	void XDBMysql::releaseSavePoint( Savepoint* pSavepoint )
 	{
-		if ( !pConn || !pSavepoint )
+		if ( !pSavepoint )
 		{
 			return;
 		}
 		try
 		{
-			pConn->releaseSavepoint( pSavepoint );
+			Connection* pConn = getConnection();
+			return pConn ? pConn->releaseSavepoint( pSavepoint ) : NULL;
 		}
 		CATCH_SQL_EXCEPTION
 	}
 	
-	void XDBMysql::createPreparestatement( int type, const char* pCmd )
+	void XDBMysql::createPreparestatement( int type, const char* pCmd, Connection* pConn )
 	{
 		if ( !pCmd )
 		{
 			return;
 		}
-		Connection* pConn = getConnection();
+		if ( !pConn )
+		{
+			pConn = getPoolConnection();
+		}
 		if ( !pConn )
 		{
 			return;
@@ -205,7 +260,7 @@ namespace XGAME
 		return it != m_mapPrepareStatment.end() ? it->second : NULL;
 	}
 
-	Statement* XDBMysql::createStatement( Connection* pConn /* = NULL */ )
+	Statement* XDBMysql::createStatement( Connection*& pConn )
 	{
 		if ( !pConn )
 		{
@@ -290,7 +345,7 @@ namespace XGAME
 	}
 	void XDBMysql::releaseConnection( Connection* pConnect )
 	{
-		if ( pConnect )
+		if ( pConnect != m_pConnection )
 		{
 			mutex::scoped_lock lock( m_mutexConn );
 			m_listConnect.push_back( pConnect );
