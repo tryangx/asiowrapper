@@ -1,4 +1,4 @@
-#include "../../include/asio/XAsioService.h"
+#include "asio/XAsioService.h"
 
 namespace XGAME
 {

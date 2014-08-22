@@ -3,13 +3,15 @@
  */
 #pragma once
 
+#include "XApi.h"
+
 #ifdef WIN32
 
 #include <windows.h>  
 
 namespace XGAME
 {
-	class XTicker
+	class XGAME_API XTicker
 	{
 	public:
 		static LONGLONG	getTickCounter();

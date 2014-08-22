@@ -1,5 +1,6 @@
 #pragma once
 
+#include "XApi.h"
 #include <string>
 #include <boost/thread/mutex.hpp>
 
@@ -9,7 +10,7 @@ namespace XGAME
 	
 #define MAX_LOG_BUFFER		4096
 		
-	class XLogger
+	class XGAME_API XLogger
 	{
 	public:
 		static XLogger*	getAsioLog();
@@ -44,13 +45,13 @@ namespace XGAME
 		boost::mutex	m_mutex;
 	};
 	
-	enum XLogMode
+	enum enLogMode
 	{
 		EN_MODE_NOLOG,
 		EN_MODE_FILELOG,
 	};
 
-	class XLogUtil
+	class XGAME_API XLogUtil
 	{
 	public:
 		XLogUtil();

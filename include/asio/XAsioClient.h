@@ -11,7 +11,7 @@ namespace XGAME
 {
 	typedef XSingleton<XAsioStat>	XAsioStatClientAgent;
 
-	class XClient
+	class XGAME_API XClient
 	{
 	public:
 		/**
@@ -65,9 +65,6 @@ namespace XGAME
 		/**
 		 * ≤‚ ‘
 		 */
-		void		testSend();		
-		void		sendThread();
-		void		sendTestPackage();
 		void		testEcho();
 
 	public:
@@ -136,14 +133,8 @@ namespace XGAME
 		 */
 		bool				m_bTestEcho;
 		bool				m_bReadHeader;
-		XAsioPackageHeader	m_packageHeader;
-		XAsioPackage		m_lastRecvPackage;		
-
-		/**
-		 * ∑¢ÀÕ
-		 */
-		boost::shared_ptr<boost::thread>		m_sendThread;
-
+		XAsioRecvPacket		m_recvPacket;
+		
 		std::function<void( size_t )>			m_funcCloseHandler;
 	};
 }

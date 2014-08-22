@@ -1,5 +1,5 @@
-#include "../../include/asio/XAsioStat.h"
-#include "../../include/util/XTicker.h"
+#include "asio/XAsioStat.h"
+#include "util/XTicker.h"
 #include <string>
 
 namespace XGAME

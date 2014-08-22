@@ -1,4 +1,4 @@
-#include "../../include/util/XLog.h"
+#include "util/XLog.h"
 
 #include <stdarg.h>
 #include <string>

@@ -1,5 +1,5 @@
-#include "../../include/asio/XAsioTCP.h"
-#include "../../include/util/XStringUtil.h"
+#include "asio/XAsioTCP.h"
+#include "util/XStringUtil.h"
 
 namespace XGAME
 {
@@ -95,8 +95,14 @@ namespace XGAME
 		return false;
 	}
 
-	size_t XAsioTCPSession::getSendSize() const { return m_sendSize; }
-	size_t XAsioTCPSession::getRecvSize() const { return m_recvSize; }
+	size_t XAsioTCPSession::getSendSize() const
+	{
+		return m_sendSize;
+	}
+	size_t XAsioTCPSession::getRecvSize() const
+	{
+		return m_recvSize;
+	}
 
 	void XAsioTCPSession::suspendSend( bool b )
 	{

@@ -1,5 +1,5 @@
-#include "../../include/asio/XAsioSession.h"
-#include "../../include/util/XStringUtil.h"
+#include "asio/XAsioSession.h"
+#include "util/XStringUtil.h"
 
 namespace XGAME
 {

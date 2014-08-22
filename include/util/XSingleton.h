@@ -6,7 +6,7 @@
 
 namespace XGAME
 {
-	class XSingletonModule : public boost::noncopyable
+	class XGAME_API XSingletonModule : public boost::noncopyable
 	{
 	public:
 		static void lock()		{ getLock() = true; }
@@ -20,7 +20,7 @@ namespace XGAME
 	//哨兵类，负责多线程操作，自动加锁解锁
 	//哨兵类不允许拷贝
 	template<typename Type>
-	class XSingletonGuard : boost::mutex::scoped_lock, public boost::noncopyable
+	class XGAME_API XSingletonGuard : boost::mutex::scoped_lock, public boost::noncopyable
 	{
 	public:
 		explicit XSingletonGuard ( Type* _ptr, boost::mutex& _mutex ) : boost::mutex::scoped_lock(_mutex), m_ptr(_ptr) {}
@@ -33,7 +33,7 @@ namespace XGAME
 
 	//监视类，用于监视单例的状态
 	template<typename Type>
-	class XSingletonWrapper : public Type
+	class XGAME_API XSingletonWrapper : public Type
 	{
 	public:
 		~XSingletonWrapper() { m_bIsDestroyed = true; }
@@ -45,7 +45,7 @@ namespace XGAME
 
 	//单例
 	template<typename Type>
-	class XSingleton : public XSingletonModule
+	class XGAME_API XSingleton : public XSingletonModule
 	{
 	public:
 		/**

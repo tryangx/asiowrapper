@@ -1,5 +1,5 @@
-#include "../../include/asio/XAsioUDP.h"
-#include "../../include/util/XStringUtil.h"
+#include "asio/XAsioUDP.h"
+#include "util/XStringUtil.h"
 #include <boost/lexical_cast.hpp>
 
 namespace XGAME

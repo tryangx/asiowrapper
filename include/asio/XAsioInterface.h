@@ -1,20 +1,19 @@
 #pragma once
 
-#include <string>
-
-#include <boost/asio.hpp>
-#include <functional>
-
 #include "XAsioService.h"
 #include "XAsioHelper.h"
 #include "XAsioPacket.h"
+
+#include <boost/asio.hpp>
+#include <functional>
+#include <string>
 
 namespace XGAME
 {
 	/**
 	 * 客户端接口声明
 	 */
-	class XAsioClientInterface : public XAsioInterface
+	class XGAME_API XAsioClientInterface : public XAsioInterface
 	{
 	protected:
 		XAsioClientInterface( XAsioService& service );
@@ -42,7 +41,7 @@ namespace XGAME
 	/**
 	 * 服务器接口声明
 	 */
-	class XAsioServerInterface : public XAsioInterface
+	class XGAME_API XAsioServerInterface : public XAsioInterface
 	{
 	public:
 		/**

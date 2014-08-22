@@ -1,17 +1,33 @@
 #pragma once
 
-#include "XAsioBase.h"
+#include "XApi.h"
+#include <iostream>
+#include <sstream>
 
+#pragma pack( push )
 #pragma pack( 1 )
 
 namespace XGAME
 {
 	//消息最大长度
 #define MAX_PACKET_SIZE			4096
-	
+
+	enum enXAsioPacketOp
+	{
+		EN_POP_MSG,			//between c2s
+		EN_POP_CMD,			//between s2s
+		EN_POP_HEARTBEAT,	//heart beat
+		EN_POP_ECHO,		//echo test
+	};
+
+	enum enXAsioPacketHeaderFlag
+	{
+		EN_PHFLAG_ENCRYPT		=	0x1000,
+	};
+
 	//------------------------------
 	// 临时缓存	
-	class XAsioBuffer 
+	class XGAME_API XAsioBuffer 
 	{
 	private:
 		struct stBuffInfo
@@ -29,10 +45,19 @@ namespace XGAME
 
 	public:
 		XAsioBuffer();
-		XAsioBuffer( const XAsioBuffer& buffer );
-		XAsioBuffer( void* pBuffer, size_t size );
-		XAsioBuffer( size_t size );
 		~XAsioBuffer();
+		/**
+		 * 拷贝构造，不会主动释放
+		 */
+		XAsioBuffer( const XAsioBuffer& buffer );
+		/**
+		 * 使用指定长度的数据初始化，不会主动释放
+		 */
+		XAsioBuffer( void* pBuffer, size_t size );
+		/**
+		 * 分配初始化长度，会主动释放
+		 */
+		XAsioBuffer( size_t size );
 				
 		/**
 		 * 获取数据所有权
@@ -42,12 +67,20 @@ namespace XGAME
 		 * 释放数据所有权
 		 */
 		void		detach();
-
 		/**
 		 * 获取数据
-		 */
-		void*		getData();
+		 */		
 		const void*	getData() const;
+		//void*		getData();		
+		/**
+		 * 复制数据
+		 * 需要手动free
+		 */
+		void*		copyData();
+		/**
+		 * 清除缓存
+		 */
+		void		clear();
 
 		/**
 		 * 获取分配空间大小
@@ -68,12 +101,6 @@ namespace XGAME
 		bool		resize( size_t newSize );
 
 		/**
-		 * 浅表复制，用于空数据情况下复制其它来源的数据
-		 * 不拥有具备所有权（即需要手动删除）
-		 */
-		void		clone( void* pData, size_t size );
-
-		/**
 		 * (深度)复制全部数据
 		 * 拥有所有权（不需要手动删除）
 		 */
@@ -84,6 +111,20 @@ namespace XGAME
 		 * 拥有所有权（不需要手动删除）
 		 */
 		void		copy( XAsioBuffer& buffer );
+		
+		/**
+		 * 导入数据
+		 * 夺取原有缓冲数据的所有权，不复制数据
+		 * 不拥有具备所有权（需要手动删除）
+		 */
+		void		import( void* pData, size_t size );
+
+		/**
+		 * 导入数据
+		 * 夺取原有缓冲数据的所有权，不复制数据
+		 * 不拥有具备所有权（需要手动删除）
+		 */
+		void		import( XAsioBuffer& buffer );
 				
 		/**
 		 * 追加数据
@@ -97,7 +138,6 @@ namespace XGAME
 		 */		
 		XAsioBuffer& operator << ( const std::string &str );
 		XAsioBuffer& operator << ( const char* pStr );
-
 		template<typename TYPE>
 		XAsioBuffer& operator << ( const TYPE &value );
 		
@@ -108,69 +148,36 @@ namespace XGAME
 		void		readString( std::string& str );
 		void		readData( const char* pData, size_t size );
 
-		//序列化输出
 		XAsioBuffer& operator >> ( std::string &str );
 		XAsioBuffer& operator >> ( const char* pStr );
-
 		template<typename TYPE>
 		XAsioBuffer& operator >> ( TYPE &value );
 	
 	private:
-		size_t getRemainSize();
+		size_t		getRemainSize();
 
 	private:
 		stBuffInfo	m_bufData;
 		size_t		m_iCursorPos;
 	};
 
-	template<typename TYPE>
-	XAsioBuffer& XAsioBuffer::operator << ( const TYPE &value )
-	{
-		if ( m_bufData._dataSize + sizeof(TYPE) > MAX_PACKET_SIZE )
-		{
-			return *this;
-		}
-		resize( m_bufData._dataSize + sizeof(TYPE) );
-		try
-		{
-			char* pCur = (char*)m_bufData._pData + m_bufData._dataSize;
-			*(TYPE*)pCur = value;
-		}
-		catch(...) {}
-		m_bufData._dataSize += sizeof(TYPE);
-		return *this;
-	}
-	template<typename TYPE>
-	XAsioBuffer& XAsioBuffer::operator >> ( TYPE &value )
-	{
-		assert( getRemainSize() >= sizeof(TYPE) );
-		if ( getRemainSize() >= sizeof(TYPE) )
-		{
-			char* pCur = (char*)m_bufData._pData + m_iCursorPos;
-			value = *(TYPE*)pCur;
-			m_iCursorPos += sizeof(TYPE);
-		}
-		return *this;
-	}
-
 	//-------------------------------------------
 	//  包头
-	class XAsioPackageHeader
+	struct XGAME_API XAsioPacketHeader
 	{
 	public:
-		inline static size_t	getHeaderSize() { return sizeof(XAsioPackageHeader); }
-
-		enum enHeaderFlag
-		{
-			EN_HDF_ENCRYPT		=	0x1000,
-		};
-
-		XAsioPackageHeader();
+		static size_t	getHeaderSize();
+		
+	public:
+		XAsioPacketHeader();
 
 		/**
 		 * 是否拥有标志
 		 */
 		bool			hasFlag( int flaginx );
+		/**
+		 * 设置标志
+		 */
 		void			setFlag( int flagInx );
 
 		/**
@@ -178,7 +185,10 @@ namespace XGAME
 		 */
 		void			setType( unsigned long type );
 
-		void			parseFromBuffer( XAsioBuffer& buff );
+		/**
+		 * 从缓冲类中解释数据
+		 */
+		void			input( XAsioBuffer& buff );
 
 	public:
 		//标志
@@ -187,160 +197,160 @@ namespace XGAME
 		unsigned short	m_dwSize;
 		//校验
 		unsigned long	m_dwToken;
+		//操作方式(命令，消息，心跳...)
+		unsigned char	m_cOp;
 		//包类型
 		unsigned long	m_dwType;
 	};
-
+	
 	//------------------------------
-	// 包
-	class XAsioPackage
+	// 发送的包工具类
+	class XGAME_API XAsioSendPacket
 	{
 	public:
-		static size_t	getSize() { return sizeof( XAsioPackage ); }
+		XAsioSendPacket( unsigned long type, char* pBuf = NULL );
 
-	public:
-		XAsioPackage();
+		/**
+		 * 得到包头数据
+		 */
+		XAsioPacketHeader*	getHeader();
 
-		virtual bool	empty();
+		/**
+		 * 得到当前位置
+		 */
+		int		getCurPos();
 
-		virtual void	reset();
+		/**
+		 * 得到当前数据指针位置
+		 */
+		char*	getCurPtr();
+				
+		/**
+		 * 重置包
+		 */
+		void	reset();
 
-		void			parseFromBuffer( XAsioBuffer& buff );
-		
-	public:
-		int				i;
-		char			info[32];
-	};
+		/**
+		 * 输出缓冲数据，用于发送
+		 */
+		void	output( XAsioBuffer& buff );
 
-	//------------------------------
-	// 用于发送的包
-	class XAsioSendPackage : public XAsioPackage
-	{
-	public:
-		XAsioSendPackage( unsigned long type, char* pBuf = NULL )
-		{
-			m_pMsgBuf = pBuf ? pBuf : m_tempBuffer;
-			m_pHeader = (XAsioPackageHeader*)m_pMsgBuf;
+		/**
+		 * 序列化输入，生成包
+		 */
+		XAsioSendPacket& operator << ( const std::string& str );
+		XAsioSendPacket& operator << ( const char* pStr );
 
-			m_pHeader->setType( type );
-			m_pHeader->m_dwSize = XAsioPackageHeader::getHeaderSize();
-		}
-
-		_inline int		getCurPos() { return m_pHeader->m_dwSize; }
-
-		_inline char*	getCurPtr() { return &m_pMsgBuf[getCurPos()]; };
-
-		void	set( char* pBuf )
-		{ 
-			m_pMsgBuf = pBuf ? pBuf : m_pMsgBuf;
-			m_pHeader = (XAsioPackageHeader*)m_pMsgBuf;
-		};
-
-		void	reset()
-		{
-			m_pHeader->m_dwSize = XAsioPackageHeader::getHeaderSize();
-			m_pHeader->setType( m_pHeader->m_dwType );
-		}
-
-		template <typename T>
-		XAsioSendPackage& operator << ( const T &value )
-		{
-			assert( getCurPos() + sizeof(T) <= MAX_PACKET_SIZE );
-			if ( getCurPos() + sizeof(T) <= MAX_PACKET_SIZE )
-			{
-				*(T*)(&((char*)m_pHeader)[getCurPos()]) = value;
-				m_pHeader->m_dwSize += sizeof(T);
-			}
-			return *this;
-		}
-
-		XAsioSendPackage& operator << ( const std::string& str )
-		{
-			unsigned short size = (unsigned short)str.size();
-			if ( size > MAX_PACKET_SIZE )
-			{
-				return *this;
-			}
-			assert( getCurPos() + sizeof(unsigned short) + size <= MAX_PACKET_SIZE );
-			if ( getCurPos() + sizeof(unsigned short) + size <= MAX_PACKET_SIZE )
-			{	
-				*this << size;
-				memcpy_s( &((char*)m_pHeader)[getCurPos()], MAX_PACKET_SIZE, str.c_str(), size );
-				m_pHeader->m_dwSize += size;
-			}
-			return *this;
-		}
+		template <typename TYPE>
+		XAsioSendPacket& operator << ( const TYPE &value );
 
 	private:
 		char					m_tempBuffer[MAX_PACKET_SIZE];
-		char*					m_pMsgBuf;
-		XAsioPackageHeader*		m_pHeader;
+		char*					m_pData;
+		char*					m_pCurPtr;
+		XAsioPacketHeader*		m_pHeader;
 	};
 	
 	//------------------------------
-	// 用于接收的包
-	class XAsioRecvPackage : public XAsioPackage
+	//	接收包的工具类
+	class XGAME_API XAsioRecvPacket
 	{
 	public:
-		XAsioRecvPackage( const char* pBuf )
-		{ 
-			reset( pBuf );
-		}
+		XAsioRecvPacket();
+		~XAsioRecvPacket();
+
+		/**
+		 * 拷贝构造
+		 */
+		XAsioRecvPacket( const XAsioRecvPacket& packet );
 				
-		void	rollback()
-		{
-			m_pCurPtr = (char*)m_pHeader + XAsioPackageHeader::getHeaderSize();
-		}
+		/**
+		 * 得到包头数据
+		 * 返回可能为空
+		 */
+		XAsioPacketHeader*	getHeader();
+
+		/**
+		 * 包是否为空（需要从包头开始获取）
+		 */
+		bool	isEmpty();
+
+		/**
+		 * 包是否可以解析
+		 */
+		bool	isReady();
+				
+		/**
+		 * 重置解析位置
+		 */
+		void	reset();
+
+		/**
+		 * 获取数据所有权
+		 */
+		void		attach();
+		/**
+		 * 释放数据所有权
+		 */
+		void		detach();
+
+		/**
+		 * 克隆数据
+		 * 从对象包复制一份到本地
+		 */
+		void	clone( XAsioRecvPacket& packet );
+
+		/**
+		 * 克隆数据
+		 * 从对象包复制一份到本地
+		 */
+		void	import( XAsioRecvPacket& packet );
+
+		/**
+		 * 导入数据
+		 * 复制指定缓冲数据到本地
+		 */
+		void	input( XAsioBuffer& buff );
+				
+		/**
+		 * 导入数据
+		 * 夺取原有缓冲数据的所有权，不复制数据
+		 */
+		void	import( XAsioBuffer& buff );
 		
-		void	reset( const char* pBuf )
-		{
-			assert( pBuf != NULL );
-			m_pHeader = (XAsioPackageHeader*)pBuf;
-			m_pCurPtr = pBuf + XAsioPackageHeader::getHeaderSize();
-		}
+		/**
+		 * 序列化输出，解析包
+		 */
+		XAsioRecvPacket& operator >> ( std::string& str );
+		XAsioRecvPacket& operator >> ( char* pStr );
 
-		//一般类型的输出
-		template <typename T>
-		XAsioRecvPackage& operator >> ( T &value )
-		{
-			assert( getRemainSize() >= sizeof(T) );
-			if ( getRemainSize() >= sizeof(T) )
-			{
-				value = *(T*)m_pCurPtr;
-				m_pCurPtr += sizeof(T);
-			}
-			return *this;
-		}
-
-		XAsioRecvPackage& operator >> ( std::string& str )
-		{
-			assert( getRemainSize() >= sizeof(unsigned short) );
-			
-			if( getRemainSize() < sizeof(unsigned short) )
-			{
-				return *this; 
-			}
-			unsigned short size;
-			*this >> size;
-
-			assert( getRemainSize() >= size && size < MAX_PACKET_SIZE );
-			if( getRemainSize() < size || size > MAX_PACKET_SIZE )
-			{
-				return *this;
-			}
-			char temp[MAX_PACKET_SIZE + 1];
-			memcpy_s( temp, MAX_PACKET_SIZE + 1, m_pCurPtr, size );
-			temp[size] = '\0';
-			str = temp;
-			m_pCurPtr += size;
-			return *this;
-		}
+		/**
+		 * 序列化输出，解析包
+		 */
+		template <typename TYPE>
+		XAsioRecvPacket& operator >> ( TYPE &value );
 
 	private:
-		unsigned long getRemainSize() { return m_pHeader->m_dwSize - ( m_pCurPtr - ((char*)m_pHeader) ); }
+		unsigned long getRemainSize();
+
+		void	setData( const char* pBuffer, size_t size );
+		
+		void	setHeader( const char* pBuffer, size_t size );
+
+		void	setPacket( const char* pBuffer, size_t size );
 
 	private:
-		const char*				m_pCurPtr;
-		XAsioPackageHeader*		m_pHeader;
+		XAsioBuffer				m_headerBuff;
+		XAsioBuffer				m_packetBuff;
+		bool					m_bHeaderReaded;
+
+		XAsioPacketHeader*		m_pHeader;
+		char*					m_pData;
+		char*					m_pCurPtr;
 	};
+
+#pragma pack( pop )
+
+#include "XAsioPacket.hpp"
 }
+

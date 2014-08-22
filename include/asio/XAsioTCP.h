@@ -10,7 +10,7 @@ namespace XGAME
 {
 #define DEFAULT_XASIO_PORT		7777
 
-	enum EN_BUFFER_TYPE
+	enum enBufferType
 	{
 		SESSION_SEND_BUFFER,
 		SESSION_RECV_BUFFER,
@@ -19,7 +19,7 @@ namespace XGAME
 		SESSION_MUTEX_COUNT		= 2,
 	};
 
-	enum EN_TIMER_ID
+	enum enTimerID
 	{
 		SESSION_DISPATCH_TIMERID,
 	};
@@ -41,7 +41,7 @@ namespace XGAME
 	
 	//----------------------
 	//	TCP连接会话
-	class XAsioTCPSession : public XAsioSession, public XAsioTimer, public boost::enable_shared_from_this<XAsioTCPSession>
+	class XGAME_API XAsioTCPSession : public XAsioSession, public XAsioTimer, public boost::enable_shared_from_this<XAsioTCPSession>
 	{
 	public:
 		static TcpSessionPtr	create( XAsioService& io );
@@ -139,7 +139,7 @@ namespace XGAME
 
 	//-----------------------
 	//	TCP客户端
-	class XAsioTCPClient : public XAsioClientInterface, public boost::enable_shared_from_this<XAsioTCPClient>
+	class XGAME_API XAsioTCPClient : public XAsioClientInterface, public boost::enable_shared_from_this<XAsioTCPClient>
 	{
 	public:
 		static TcpClientPtr	create( XAsioService& io );
@@ -192,7 +192,7 @@ namespace XGAME
 
 	//-----------------------
 	//	TCP server
-	class XAsioTCPServer : public XAsioServerInterface, public boost::enable_shared_from_this<XAsioTCPServer>
+	class XGAME_API XAsioTCPServer : public XAsioServerInterface, public boost::enable_shared_from_this<XAsioTCPServer>
 	{
 	public:
 		static TcpServerPtr	create( XAsioService& io );

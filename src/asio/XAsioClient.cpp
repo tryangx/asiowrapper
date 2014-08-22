@@ -1,7 +1,7 @@
-#include "../../include/asio/XAsioClient.h"
-#include "../../include/asio/XAsioHelper.h"
-#include "../../include/util/XStringUtil.h"
-#include "../../include/asio/XAsioStat.h"
+#include "asio/XAsioClient.h"
+#include "asio/XAsioHelper.h"
+#include "util/XStringUtil.h"
+#include "asio/XAsioStat.h"
 
 namespace XGAME
 {
@@ -94,22 +94,8 @@ namespace XGAME
 			{	
 				m_ptrSession->close();
 			}
-			//onLog( "disconnect" );		//will cause lock
 		}
 		m_connectTimer.cancel();
-
-		if ( m_sendThread )
-		{
-			m_sendThread->interrupt();
-		}		
-	}
-
-	void XClient::testSend()
-	{
-		if ( m_sendThread == nullptr )
-		{
-			m_sendThread = boost::shared_ptr<boost::thread>( new boost::thread( boost::bind( &XClient::sendThread, this ) ) );
-		}
 	}
 		
 	void XClient::send( XAsioBuffer& buff )
@@ -132,21 +118,17 @@ namespace XGAME
 		}
 		if ( m_bTestEcho )
 		{
-			m_ptrSession->read( XAsioPackageHeader::getHeaderSize() );
+			m_ptrSession->read( XAsioPacketHeader::getHeaderSize() );
 		}
 		else
 		{
-			if ( m_bReadHeader && m_packageHeader.m_dwSize > 0 )
+			if ( m_recvPacket.isEmpty() )
 			{
-				if ( m_packageHeader.m_dwSize != sizeof(XAsioPackage) )
-				{
-					onLog( outputString( "FATAL ERROR %d", m_packageHeader.m_dwSize ) );
-				}
-				m_ptrSession->read( m_packageHeader.m_dwSize );
+				m_ptrSession->read( XAsioPacketHeader::getHeaderSize() );
 			}
-			else
+			else if ( m_recvPacket.getHeader() )
 			{
-				m_ptrSession->read( XAsioPackageHeader::getHeaderSize() );
+				m_ptrSession->read( m_recvPacket.getHeader()->m_dwSize );
 			}
 		}
 	}
@@ -179,41 +161,20 @@ namespace XGAME
 		//onLog( "Client connect server!" );
 	}
 
-	class test
-	{
-	public:
-		void	print() {}
-	};
-
 	void XClient::onRecv( XAsioBuffer& buff )
 	{
-		if ( m_bTestEcho )
+		XAsioStatClientAgent::getMutableInstance()->recv( buff.getDataSize() );
+		m_recvPacket.import( buff );
+		if ( m_recvPacket.isReady() )
 		{
-			m_packageHeader.parseFromBuffer( buff );
-			if ( m_packageHeader.m_dwSize != 999 )
+			if ( m_recvPacket.getHeader()->m_cOp == EN_POP_ECHO )
 			{
-				throw std::runtime_error( "echo msg error" );
-			}			
-			send( buff );
-			recv();
-			
-			XAsioStatClientAgent::getMutableInstance()->recv( buff.getDataSize() );
-		}
-		else
-		{
-			if ( m_bReadHeader )
-			{
-				m_lastRecvPackage.parseFromBuffer( buff );
+				send( buff );
 			}
-			else
-			{
-				m_packageHeader.parseFromBuffer( buff );
-			}
-			m_bReadHeader = !m_bReadHeader;
-			recv();
-			XAsioStatClientAgent::getMutableInstance()->recv( buff.getDataSize() );
 		}
+		recv();		
 	}
+
 
 	void XClient::onSend( size_t bytesTransferred )
 	{
@@ -259,58 +220,14 @@ namespace XGAME
 		}
 		m_bTestEcho = true;
 
-		XAsioPackageHeader header;
+		XAsioPacketHeader header;
 		header.m_dwType = 1;
 		header.m_dwSize = 999;
 		
 		recv();
 
 		XAsioBuffer buff;
-		buff.clone( &header, sizeof(header) );
+		buff.copy( &header, sizeof(header) );
 		send( buff );
-	}
-
-	void XClient::sendTestPackage()
-	{
-		if ( m_bIsConnected )
-		{
-			int times = rand() % 1 + 1;
-			for ( int i = 0; i < times; i++ )
-			{
-				XAsioPackage p;
-				p.i = 10;
-				sprintf_s( p.info, sizeof(p.info), "from client %d", getId() );
-
-				XAsioPackageHeader header;
-				header.m_dwSize = sizeof(p);
-
-				XAsioBuffer buff1;
-				buff1.copy( &header, sizeof(header) );
-				send( buff1 );
-
-				XAsioBuffer buff2;
-				buff2.copy( &p, sizeof(p) );
-				send( buff2 );
-			}
-		}
-	}
-
-	void XClient::sendThread()
-	{
-		try
-		{
-			while( 1 )
-			{
-				boost::this_thread::interruption_point();
-
-				sendTestPackage();
-				
-				int millseconds = rand() % 3000 + 2000;
-				this_thread::sleep( get_system_time() + posix_time::milliseconds( millseconds ) );
-			}
-		}
-		catch(boost::thread_interrupted &)
-		{
-		}
 	}
 }

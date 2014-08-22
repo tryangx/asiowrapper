@@ -1,4 +1,4 @@
-#include "../../include/db/XDBMysql.h"
+#include "db/XDBMysql.h"
 
 namespace XGAME
 {

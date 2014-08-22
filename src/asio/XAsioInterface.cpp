@@ -1,5 +1,5 @@
-#include "../../include/asio/XAsioInterface.h"
-#include "../../include/asio/XAsioService.h"
+#include "asio/XAsioInterface.h"
+#include "asio/XAsioService.h"
 
 namespace XGAME
 {

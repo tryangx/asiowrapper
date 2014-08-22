@@ -20,7 +20,7 @@ namespace XGAME
 	class XAsioUDPClient;
 	class XAsioUDPServer;
 
-	class XAsioUDPSession : public XAsioSession, public boost::enable_shared_from_this<XAsioUDPSession>
+	class XGAME_API XAsioUDPSession : public XAsioSession, public boost::enable_shared_from_this<XAsioUDPSession>
 	{
 	public:
 		static UdpSessionPtr	create( XAsioService& io );
@@ -42,7 +42,7 @@ namespace XGAME
 		UdpSocketPtr		m_socket;
 	};
 	
-	class XAsioUDPClient : public XAsioClientInterface, public boost::enable_shared_from_this<XAsioUDPClient>
+	class XGAME_API XAsioUDPClient : public XAsioClientInterface, public boost::enable_shared_from_this<XAsioUDPClient>
 	{
 	public:
 		static UdpClientPtr	create( XAsioService& io );
@@ -72,7 +72,7 @@ namespace XGAME
 		std::function< void( UdpSessionPtr ) >	m_funcConnectHandler;
 	};
 
-	class XAsioUDPServer : public XAsioServerInterface, public boost::enable_shared_from_this<XAsioUDPServer>
+	class XGAME_API XAsioUDPServer : public XAsioServerInterface, public boost::enable_shared_from_this<XAsioUDPServer>
 	{
 	public:
 		static UdpServerPtr	create( XAsioService& io );

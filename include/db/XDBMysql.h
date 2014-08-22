@@ -1,6 +1,7 @@
 #pragma once
 
 #pragma warning( disable : 4251 )
+#include "XApi.h"
 #include <mysql_driver.h>
 #include <mysql_connection.h>
 #include <cppconn/driver.h>
@@ -22,7 +23,7 @@ namespace XGAME
 
 	typedef boost::shared_ptr<ResultSet>		RESULTSET_PTR;
 
-	class XDBMysql
+	class XGAME_API XDBMysql
 	{
 	public:
 		XDBMysql();

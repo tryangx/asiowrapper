@@ -22,7 +22,7 @@ namespace XGAME
 	/**
 	 * 会话接口声明
 	 */
-	class XAsioSession
+	class XGAME_API XAsioSession
 	{
 	public:
 		~XAsioSession();
@@ -87,7 +87,7 @@ namespace XGAME
 		char								m_readBuffer[MAX_PACKET_SIZE];
 		char								m_sendBuffer[MAX_PACKET_SIZE];
 
-		std::function<void( XAsioBuffer )>	m_funcReadHandler;
+		std::function<void( XAsioBuffer& )>	m_funcReadHandler;
 		std::function<void( size_t )>		m_funcWriteHandler;
 		std::function<void( size_t )>		m_funcCloseHandler;
 		std::function<void( const char* )>	m_funcLogHandler;		

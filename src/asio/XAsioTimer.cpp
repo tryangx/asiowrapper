@@ -1,4 +1,4 @@
-#include "../../include/asio/XAsioHelper.h"
+#include "asio/XAsioHelper.h"
 
 namespace XGAME
 {
@@ -25,11 +25,10 @@ namespace XGAME
 			it = m_timerContainer.insert( st ).first;
 			it->_timer = boost::make_shared<deadline_timer>( m_refIoService );
 		}
-		lock.unlock();
-
 		it->_enStatus = stTimerInfo::TIMER_RUN;
 		it->_milliseconds = milliseconds;
 		it->_pUserData = pUserData;
+		lock.unlock();
 
 		startTimer( *it );			
 	}

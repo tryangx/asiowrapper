@@ -9,10 +9,11 @@
  */
 #pragma once
 
+#include "XApi.h"
+#include "XAsioBase.h"
+
 #include <boost/container/list.hpp>
 #include <vector>
-
-#include "XAsioBase.h"
 
 namespace XGAME
 {
@@ -26,7 +27,7 @@ namespace XGAME
 	/**
 	 * ASIO底层接口声明
 	 */
-	class XAsioInterface
+	class XGAME_API XAsioInterface
 	{
 	protected:
 		XAsioInterface( XAsioService& service );
@@ -75,10 +76,10 @@ namespace XGAME
 		std::function<void( const char* )>		m_funcLogHandler;
 	};
 
-	class XAsioServicePool
+	class XGAME_API XAsioServicePool
 	{
 	public:
-		explicit XAsioServicePool();
+		XAsioServicePool();
 
 	public:
 		bool	isRunning() const;
@@ -106,7 +107,7 @@ namespace XGAME
 	};
 
 	//ASIO服务器管理器
-	class XAsioService
+	class XGAME_API XAsioService
 	{
 	public:
 		typedef XAsioInterface*					SERVICE_TYPE;

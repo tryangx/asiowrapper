@@ -52,8 +52,9 @@ namespace XGAME
 #endif
 
 	//----------------------------------------------
-#define ON_CALLBACK( FUNC_PTR )						if ( FUNC_PTR != nullptr ) { FUNC_PTR(); }
-#define ON_CALLBACK_PARAM( FUNC_PTR, PARAM )		if ( FUNC_PTR != nullptr ) { FUNC_PTR( PARAM ); }
+#define ON_CALLBACK( FUNC_PTR )							if ( FUNC_PTR != nullptr ) { FUNC_PTR(); }
+#define ON_CALLBACK_PARAM( FUNC_PTR, PARAM )			if ( FUNC_PTR != nullptr ) { FUNC_PTR( PARAM ); }
+#define ON_CALLBACK_PARAM2( FUNC_PTR, PARAM1, PARAM2 )	if ( FUNC_PTR != nullptr ) { FUNC_PTR( PARAM1, PARAM2 ); }
 
 	//----------------------------------------------
 	//	π≤œÌ∂‘œÛ∫Í
