@@ -237,7 +237,17 @@ namespace XGAME
 
 	XAsioTCPClient::~XAsioTCPClient()
 	{
-		m_funcConnectHandler = nullptr;
+		m_funcConnectHandler	= nullptr;
+		m_funcReconnectHandler	= nullptr;
+	}
+
+	void XAsioTCPClient::setConnectHandler( std::function<void( TcpSessionPtr )> handler )
+	{
+		m_funcConnectHandler = handler;
+	}
+	void XAsioTCPClient::setReconnectHandler( std::function<void()> handler )
+	{
+		m_funcReconnectHandler = handler;
 	}
 
 	void XAsioTCPClient::init()
@@ -273,7 +283,13 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+			try
+			{
+				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+			}
+			catch(...)
+			{
+			}
 		}
 		else
 		{
@@ -324,9 +340,6 @@ namespace XGAME
 
 	XAsioTCPServer::~XAsioTCPServer()
 	{
-		m_funcAcceptHandler		= nullptr;
-		m_funcCancelHandler		= nullptr;
-
 		stopAccept();
 	}
 
@@ -337,6 +350,15 @@ namespace XGAME
 
 	void XAsioTCPServer::init()
 	{
+	}
+	
+	void XAsioTCPServer::setAcceptHandler( std::function<void( TcpSessionPtr )> handler )
+	{
+		m_funcAcceptHandler = handler;
+	}
+	void XAsioTCPServer::setCancelHandler( std::function<void()> handler )
+	{
+		m_funcCancelHandler = handler;
 	}
 
 	void XAsioTCPServer::release()
@@ -372,7 +394,7 @@ namespace XGAME
 	{
 		if ( m_acceptor )
 		{
-			boost::system::error_code err;
+			boost::system::error_code err;			
 			m_acceptor->cancel( err );
 			m_acceptor->close( err );
 			if ( err )
@@ -390,7 +412,16 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+			try
+			{
+				if ( m_acceptor->is_open() )
+				{
+					ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+				}				
+			}
+			catch(...)
+			{
+			}
 		}
 		else
 		{

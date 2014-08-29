@@ -184,6 +184,6 @@ namespace XGAME
 		const float			parseFloat( std::string& s ) { return parseFloat( s.c_str() ); }
 
 		const double		parseDouble( const char* pStr ) { return (double)atol( pStr ); }
-		const double		parseDouble( std::string& s ) { return parseLong( s.c_str() ); }
+		const double		parseDouble( std::string& s ) { return parseDouble( s.c_str() ); }
 	}
 }

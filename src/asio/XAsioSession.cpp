@@ -21,6 +21,23 @@ namespace XGAME
 	unsigned int XAsioSession::getSessionId() const { return m_sessionId; }
 	void XAsioSession::setSessionId( unsigned int id ) { m_sessionId = id; }
 
+	void XAsioSession::setReadHandler( std::function<void( XAsioBuffer& )> handler )
+	{
+		m_funcReadHandler = handler;
+	}
+	void XAsioSession::setWriteHandler( std::function<void( size_t )> handler )
+	{
+		m_funcWriteHandler = handler;
+	}
+	void XAsioSession::setLogHandler( std::function<void( const char* )> handler )
+	{
+		m_funcLogHandler = handler;
+	}
+	void XAsioSession::setCloseHandler( std::function<void( size_t )> handler )
+	{
+		m_funcCloseHandler = handler;
+	}
+
 	void XAsioSession::release()
 	{
 		m_funcReadHandler			= nullptr;

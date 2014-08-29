@@ -11,7 +11,7 @@ namespace XASIO
 	XAsioSocket<typename MSGTYPE, typename SOCKET>::XAsioSocket( io_service& ioService ) : 
 	SOCKET( ioService ),
 		XAsioTimer( ioService ), 
-		packer( boost::make_shared<DEFAULT_PACKER>() )
+		packer( boost::make_shared<DEFAULT_PORT>() )
 	{
 		resetState();
 	}

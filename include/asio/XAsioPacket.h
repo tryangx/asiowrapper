@@ -1,3 +1,13 @@
+/**
+ * 封包
+ *
+ * packet由header(包头) + content(包内容)两部分组织
+ * header是XAsioPacketHeader
+ * content为任意数据，可为空
+ *
+ * XAsioSendPacket用于发送包，会自动处理包头相关
+ * XAsioRecvPacket用于解析包，会自动处理包头相关
+ */
 #pragma once
 
 #include "XApi.h"
@@ -14,15 +24,31 @@ namespace XGAME
 
 	enum enXAsioPacketOp
 	{
-		EN_POP_MSG,			//between c2s
-		EN_POP_CMD,			//between s2s
-		EN_POP_HEARTBEAT,	//heart beat
-		EN_POP_ECHO,		//echo test
+		//C2S/S2C协议
+		//用于客服间通信
+		EN_POP_MSG,
+
+		//S2S命令
+		//用于服务器间转发，包类型等数据不影响，只根据目标ID选择对应的目的服务器
+		EN_POP_CMD,
+
+		//C2S/S2C心跳
+		EN_POP_HEARTBEAT,
+
+		//应答
+		EN_POP_ECHO,
 	};
 
 	enum enXAsioPacketHeaderFlag
 	{
+		//是否可以丢包
+		EN_PHFLAG_DISCARD		=	0x100,
+
+		//是否加密
 		EN_PHFLAG_ENCRYPT		=	0x1000,
+
+		//XOR
+		EN_PHFLAG_ENCRYPT_XOR	=	0x1001,
 	};
 
 	//------------------------------
@@ -171,6 +197,23 @@ namespace XGAME
 	public:
 		XAsioPacketHeader();
 
+		_inline unsigned short	getCRC()	{ return m_wCRC; }
+		_inline unsigned char	getToken()	{ return m_cToken; }
+
+		_inline unsigned char	getOp()		{ return m_cOp; }
+		_inline void			setOp( unsigned char op )	{ m_cOp = op; }
+
+		_inline unsigned int	getDestID()	{ return m_dwDestId; }
+		_inline void			setDestID( unsigned int id )	{ m_dwDestId = id; }
+		
+		void	setCmdOp( unsigned int destId );
+
+		/**
+		 * 设置消息类型
+		 */
+		_inline void	setType( unsigned int type ) { m_dwType = type; }
+		_inline unsigned int	getType()	{ return m_dwType; }
+
 		/**
 		 * 是否拥有标志
 		 */
@@ -181,26 +224,40 @@ namespace XGAME
 		void			setFlag( int flagInx );
 
 		/**
-		 * 设置消息类型
-		 */
-		void			setType( unsigned long type );
-
-		/**
 		 * 从缓冲类中解释数据
 		 */
-		void			input( XAsioBuffer& buff );
+		//void			input( XAsioBuffer& buff );
 
 	public:
-		//标志
-		unsigned long	m_dwFlag;
-		//包长度
-		unsigned short	m_dwSize;
-		//校验
-		unsigned long	m_dwToken;
-		//操作方式(命令，消息，心跳...)
+		/**
+		 * 校验码
+		 */
+		unsigned short	m_wCRC;
+		/**
+		 * 口令
+		 */
+		unsigned char	m_cToken;
+		/**
+		 * 操作类型(协议，命令，心跳...)
+		 */
 		unsigned char	m_cOp;
-		//包类型
-		unsigned long	m_dwType;
+		/**
+		 * 标志位
+		 * 是否使用加密,加密算法位,校验算法位etc
+		 */
+		unsigned short	m_dwFlag;
+		/**
+		 * 包内容长度
+		 */
+		unsigned short	m_dwSize;
+		/**
+		 * 包类型
+		 */
+		unsigned int	m_dwType;		
+		/**
+		 * 目标ID
+		 */
+		unsigned int	m_dwDestId;
 	};
 	
 	//------------------------------
@@ -208,7 +265,7 @@ namespace XGAME
 	class XGAME_API XAsioSendPacket
 	{
 	public:
-		XAsioSendPacket( unsigned long type, char* pBuf = NULL );
+		XAsioSendPacket( unsigned int type, char* pBuf = NULL );
 
 		/**
 		 * 得到包头数据
@@ -263,6 +320,8 @@ namespace XGAME
 		 * 拷贝构造
 		 */
 		XAsioRecvPacket( const XAsioRecvPacket& packet );
+
+		void		setFromId( unsigned int id );
 				
 		/**
 		 * 得到包头数据
@@ -273,17 +332,17 @@ namespace XGAME
 		/**
 		 * 包是否为空（需要从包头开始获取）
 		 */
-		bool	isEmpty();
+		bool		isEmpty();
 
 		/**
 		 * 包是否可以解析
 		 */
-		bool	isReady();
+		bool		isReady();
 				
 		/**
 		 * 重置解析位置
 		 */
-		void	reset();
+		void		reset();
 
 		/**
 		 * 获取数据所有权
@@ -298,25 +357,30 @@ namespace XGAME
 		 * 克隆数据
 		 * 从对象包复制一份到本地
 		 */
-		void	clone( XAsioRecvPacket& packet );
+		void		clone( XAsioRecvPacket& packet );
 
 		/**
 		 * 克隆数据
 		 * 从对象包复制一份到本地
 		 */
-		void	import( XAsioRecvPacket& packet );
+		void		import( XAsioRecvPacket& packet );
 
 		/**
-		 * 导入数据
+		 * 导入包流数据
 		 * 复制指定缓冲数据到本地
 		 */
-		void	input( XAsioBuffer& buff );
+		void		input( XAsioBuffer& buff );
 				
 		/**
-		 * 导入数据
+		 * 导入包流数据
 		 * 夺取原有缓冲数据的所有权，不复制数据
 		 */
-		void	import( XAsioBuffer& buff );
+		void		import( XAsioBuffer& buff );
+
+		/**
+		 * 导出数据
+		 */
+		void		exportBuffer( XAsioBuffer& buff );
 		
 		/**
 		 * 序列化输出，解析包
@@ -331,7 +395,7 @@ namespace XGAME
 		XAsioRecvPacket& operator >> ( TYPE &value );
 
 	private:
-		unsigned long getRemainSize();
+		unsigned int getRemainSize();
 
 		void	setData( const char* pBuffer, size_t size );
 		
@@ -343,6 +407,8 @@ namespace XGAME
 		XAsioBuffer				m_headerBuff;
 		XAsioBuffer				m_packetBuff;
 		bool					m_bHeaderReaded;
+
+		unsigned int			m_dwFromId;
 
 		XAsioPacketHeader*		m_pHeader;
 		char*					m_pData;

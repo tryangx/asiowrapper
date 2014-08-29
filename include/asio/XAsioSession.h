@@ -27,8 +27,15 @@ namespace XGAME
 	public:
 		~XAsioSession();
 
-		//连接的ID
+		/**
+		 * 获取连接的序列ID
+		 */
 		unsigned int	getSessionId() const;
+
+		/**
+		 * 设置连接的序列ID
+		 * 一般由相应的服务自动生成
+		 */
 		void			setSessionId( unsigned int id );
 		
 		/**
@@ -47,16 +54,10 @@ namespace XGAME
 		virtual void	release();
 
 	public:
-		template< typename HANDLER, typename OBJECT >
-		void			setReadHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcReadHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
-		template< typename HANDLER, typename OBJECT >
-		void			setReadCompleteHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcReadCompleteHandler = std::bind( eventHandler, eventHandlerObject ); }
-		template< typename HANDLER, typename OBJECT >
-		void			setWriteHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcWriteHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }		
-		template< typename HANDLER, typename OBJECT >
-		void			setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
-		template< typename HANDLER, typename OBJECT >
-		void			setCloseHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcCloseHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
+		void			setReadHandler( std::function<void( XAsioBuffer& )> handler );		
+		void			setWriteHandler( std::function<void( size_t )> handler );
+		void			setLogHandler( std::function<void( const char* )> handler );
+		void			setCloseHandler( std::function<void( size_t )> handler );
 
 	protected:
 		XAsioSession( XAsioService& service );

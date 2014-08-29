@@ -17,11 +17,11 @@
 
 namespace XGAME
 {
-#define DEFAULT_POOL_SIZE				8
+#define DEFAULT_POOL_SIZE				4
 
 //ASIO线程数量
 //用于监听，消息收发等
-#define XASIO_SERVICE_THREAD_NUM		8
+#define XASIO_SERVICE_THREAD_NUM		4
 	
 	class XAsioService;
 	/**
@@ -42,8 +42,8 @@ namespace XGAME
 		//停止服务
 		void				stopService();
 
-		unsigned int		getId() const;
-		void				setId( unsigned int id );
+		unsigned int		getServiceId() const;
+		void				setServiceId( unsigned int id );
 
 		XAsioService&		getService();
 		const XAsioService& getService() const;
@@ -62,15 +62,14 @@ namespace XGAME
 		 * 发生错误的响应
 		 * 函数原型为function( std::string, size_t )
 		 */
-		template< typename HANDLER, typename OBJECT >
-		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
+		void		setLogHandler( std::function<void( const char* )> handler );
 		
 	protected:	
 		XAsioService&				m_service;
 		boost::asio::io_service&	m_ioService;
 		boost::asio::strand			m_strand;
 		
-		size_t						m_id;
+		size_t						m_iServiceId;
 		bool						m_bIsStarted;
 
 		std::function<void( const char* )>		m_funcLogHandler;
@@ -162,8 +161,7 @@ namespace XGAME
 		io_service&		getIOService();
 
 	public:
-		template< typename HANDLER, typename OBJECT >
-		void	setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
+		void	setLogHandler( std::function<void( const char* )> handler );
 
 	protected:
 		//阻塞式运行全部服务
@@ -172,7 +170,7 @@ namespace XGAME
 		void	stopAndFree( SERVICE_TYPE service  );
 
 		virtual void freeService( SERVICE_TYPE service );
-
+		
 		FOREACH_ALL_MUTEX( m_srvContainer, m_srvMutex );
 		FOREVERY_ONE_MUTEX( m_srvContainer, m_srvMutex );
 		
@@ -194,6 +192,6 @@ namespace XGAME
 
 		bool				m_bIsStarted;
 
-		std::function<void( const char* )>			m_funcLogHandler;
+		std::function<void( const char* )>		m_funcLogHandler;
 	};
 }

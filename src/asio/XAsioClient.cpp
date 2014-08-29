@@ -14,7 +14,7 @@ namespace XGAME
 	void XClient::onLogHandler( const char* pLog ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( pLog ); } }
 
 	XClient::XClient( XAsioService& io ) : m_service( io ),
-		m_iPort( DEFAULT_XASIO_PORT ), m_bInit( false ), m_bIsConnected( false ), m_id( 0 ),
+		m_iPort( 6580 ), m_bInit( false ), m_bIsConnected( false ), m_iClientId( 0 ),
 		m_connectTimer( m_service.getIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr ),
 		m_bReadHeader( false ), m_bTestEcho( false )
 	{
@@ -28,13 +28,13 @@ namespace XGAME
 
 	TcpClientPtr XClient::getService() { return m_ptrTCPClient; }
 
-	unsigned int XClient::getId() const { return m_id; }
-	void XClient::setId( unsigned int id )
+	unsigned int XClient::getClientId() const { return m_iClientId; }
+	void XClient::setClientId( unsigned int id )
 	{
-		m_id = id;
+		m_iClientId = id;
 		if ( m_ptrTCPClient )
 		{
-			m_ptrTCPClient->setId( id );
+			m_ptrTCPClient->setServiceId( id );
 		}
 	}
 
@@ -42,7 +42,27 @@ namespace XGAME
 	{
 		return m_bIsConnected;
 	}
-
+	
+	void XClient::setConnectHandler( std::function<void( XClient* )> handler )
+	{
+		m_funcConnectHandler = handler;
+	}
+	void XClient::setCloseHandler( std::function<void( size_t )> handler )
+	{
+		m_funcCloseHandler = handler;
+	}
+	void XClient::setRecvHandler( std::function<void( XClient*, XAsioRecvPacket& )> handler )
+	{
+		m_funcRecvHandler = handler;
+	}
+	const char*	XClient::getIp() const
+	{
+		return m_sHost.c_str();
+	}
+	unsigned short XClient::getPort() const
+	{
+		return m_iPort;
+	}
 	void XClient::setAddress( std::string host, int port )
 	{
 		if ( m_bIsConnected )
@@ -58,19 +78,20 @@ namespace XGAME
 	{
 		if ( !m_bInit )
 		{
-			m_bInit = true;
-			m_ptrTCPClient = XAsioTCPClient::create( m_service );
-			setId( m_id );
+			m_bInit = true;			
 		}
 		if ( !m_bInit || m_bIsConnected )
 		{
 			onLog( "Client isn't initailized" );
 			return;
 		}
-		m_ptrTCPClient->setConnectHandler( &XClient::onConnect, this );
-		m_ptrTCPClient->setResolveHandler( &XClient::onResolve, this );
-		m_ptrTCPClient->setLogHandler( &XClient::onLog, this );
+		m_ptrTCPClient.reset();
+		m_ptrTCPClient = XAsioTCPClient::create( m_service );		
+		m_ptrTCPClient->setConnectHandler( std::bind( &XClient::onConnect, this, std::placeholders::_1 ) );
+		m_ptrTCPClient->setResolveHandler( std::bind( &XClient::onResolve, this ) );
+		m_ptrTCPClient->setLogHandler( std::bind( &XClient::onLog, this, std::placeholders::_1 ) );
 		m_ptrTCPClient->connect( m_sHost, m_iPort );
+		setClientId( m_iClientId );
 		
 		m_connectTimer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
 
@@ -91,7 +112,8 @@ namespace XGAME
 		if ( m_bIsConnected )
 		{
 			if ( m_ptrSession )
-			{	
+			{
+				m_ptrSession->release();
 				m_ptrSession->close();
 			}
 		}
@@ -141,7 +163,7 @@ namespace XGAME
 		}
 		if ( session == nullptr )
 		{
-			onLog( "cann't connec to server" );
+			onLog( "cann't connect to server" );
 			disconnect();
 			return;
 		}
@@ -150,14 +172,15 @@ namespace XGAME
 		m_bIsConnected = true;
 		
 		m_ptrSession = session;
-		m_ptrSession->setSessionId( m_id );
-		m_ptrSession->setReadHandler( &XClient::onRecv, this );
-		m_ptrSession->setWriteHandler( &XClient::onSend, this );
-		m_ptrSession->setCloseHandler( &XClient::onClose, this );
-		m_ptrSession->setLogHandler( &XClient::onLog, this );
+		m_ptrSession->setSessionId( m_iClientId );
+		m_ptrSession->setReadHandler( std::bind( &XClient::onRecv, this, std::placeholders::_1 ) );
+		m_ptrSession->setWriteHandler( std::bind( &XClient::onSend, this, std::placeholders::_1 ) );
+		m_ptrSession->setCloseHandler( std::bind( &XClient::onClose, this, std::placeholders::_1 ) );
+		m_ptrSession->setLogHandler( std::bind( &XClient::onLog, this, std::placeholders::_1 ) );
 
 		recv();
 
+		ON_CALLBACK_PARAM( m_funcConnectHandler, this );
 		//onLog( "Client connect server!" );
 	}
 
@@ -171,6 +194,7 @@ namespace XGAME
 			{
 				send( buff );
 			}
+			ON_CALLBACK_PARAM2( m_funcRecvHandler, this, m_recvPacket );
 		}
 		recv();		
 	}
@@ -188,13 +212,13 @@ namespace XGAME
 	void XClient::onClose( size_t id )
 	{
 		m_bIsConnected = false;
-		ON_CALLBACK_PARAM( m_funcCloseHandler, m_id );
+		ON_CALLBACK_PARAM( m_funcCloseHandler, m_iClientId );
 	}
 	
 	void XClient::onLog( const char* pLog )
 	{
 		std::string log = pLog;
-		onLogHandler( outputString( "[%d]%s", m_id, log.c_str() ) );
+		onLogHandler( outputString( "[%d]%s", m_iClientId, log.c_str() ) );
 	}
 	
 	void XClient::onConnTimeoutCallback( const boost::system::error_code& err )

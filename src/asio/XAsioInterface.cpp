@@ -16,6 +16,11 @@ namespace XGAME
 		m_funcResolveHandler = nullptr;
 	}
 	
+	void XAsioClientInterface::setResolveHandler( std::function<void()> handler )
+	{
+		m_funcResolveHandler = handler;
+	}
+
 	//-------------------------------------------
 	//	服务端接口实现
 

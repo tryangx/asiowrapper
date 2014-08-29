@@ -17,7 +17,7 @@ namespace XGAME
 	XAsioInterface::XAsioInterface( XAsioService& service )
 		: m_funcLogHandler( nullptr ), 
 		m_service( service ), m_ioService( service.getIOService() ), m_strand( m_ioService ),
-		m_bIsStarted( false ), m_id( 0 )
+		m_bIsStarted( false ), m_iServiceId( 0 )
 	{
 		m_service.registerService( this );
 	}
@@ -30,13 +30,18 @@ namespace XGAME
 	bool XAsioInterface::isStarted() const { return m_bIsStarted; }
 
 	void XAsioInterface::startService() { if ( !m_bIsStarted ) { m_bIsStarted = true; init(); } }	
-	void XAsioInterface::stopService() { if ( m_bIsStarted ) { m_bIsStarted = false; release(); } }
+	void XAsioInterface::stopService()
+	{
+		if ( m_bIsStarted ) { m_bIsStarted = false; release(); }
+	}
 	
-	unsigned int XAsioInterface::getId() const { return m_id; }
-	void XAsioInterface::setId( unsigned int id ) { m_id = id; }
+	unsigned int XAsioInterface::getServiceId() const { return m_iServiceId; }
+	void XAsioInterface::setServiceId( unsigned int id ) { m_iServiceId = id; }
 	
 	XAsioService& XAsioInterface::getService() { return m_service; }
 	const XAsioService& XAsioInterface::getService() const { return m_service; }
+
+	void XAsioInterface::setLogHandler( std::function<void( const char* )> handler ) { m_funcLogHandler = handler; }
 
 	//-------------------------------------------
 
@@ -126,6 +131,11 @@ namespace XGAME
 	bool XAsioService::isStarted() const { return m_bIsStarted; }
 
 	bool XAsioService::isRunning() const { return !m_ioService.stopped(); }
+
+	void XAsioService::setLogHandler( std::function<void( const char* )> handler )
+	{
+		m_funcLogHandler = handler;
+	}
 	
 	void XAsioService::startAllServices( int threadNum )
 	{
@@ -205,7 +215,8 @@ namespace XGAME
 	XAsioService::SERVICE_TYPE XAsioService::getService( int serviceId )
 	{
 		mutex::scoped_lock lock( m_srvMutex );
-		CONTAINER_TYPE::iterator iter = std::find_if( std::begin( m_srvContainer ), std::end( m_srvContainer ), [=]( SERVICE_CTYPE& item ) { return serviceId == item->getId(); } );
+		CONTAINER_TYPE::iterator iter = std::find_if( std::begin( m_srvContainer ), std::end( m_srvContainer ),
+			[=]( SERVICE_CTYPE& item ) { return serviceId == item->getServiceId(); } );
 		return iter != std::end( m_srvContainer ) ? *iter : nullptr;
 	}
 
@@ -240,7 +251,8 @@ namespace XGAME
 	void XAsioService::removeService( int srvId )
 	{
 		mutex::scoped_lock lock( m_srvMutex );
-		CONTAINER_TYPE::iterator iter = std::find_if( std::begin( m_srvContainer ), std::end( m_srvContainer ), [=]( SERVICE_CTYPE& item ) { return srvId == item->getId(); } );
+		CONTAINER_TYPE::iterator iter = std::find_if( std::begin( m_srvContainer ), std::end( m_srvContainer ),
+			[=]( SERVICE_CTYPE& item ) { return srvId == item->getServiceId(); } );
 		if ( iter != std::end( m_srvContainer ) )
 		{
 			SERVICE_TYPE service = *iter;

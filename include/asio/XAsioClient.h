@@ -38,44 +38,58 @@ namespace XGAME
 		/**
 		 * 得到ID
 		 */
-		unsigned int	getId() const;
-		void			setId( unsigned int id );
+		unsigned int	getClientId() const;
+		void			setClientId( unsigned int id );
 
 		bool			isConnected() const;
 
 		/**
 		 * 设置地址
 		 */
-		void		setAddress( std::string host = "localhost", int port = DEFAULT_XASIO_PORT );
+		void			setAddress( std::string host = "localhost", int port = 6580 );
+		const char*		getIp() const;
+		unsigned short	getPort() const;
 		
 		/**
 		 * 连接
 		 */
-		void		connect();
+		void			connect();
 		/**
 		 * 断开连接
 		 */
-		void		disconnect();
+		void			disconnect();
 				
 		/**
 		 * 发送
 		 */
-		void		send( XAsioBuffer& buff );
+		void			send( XAsioBuffer& buff );
 
 		/**
 		 * 测试
 		 */
-		void		testEcho();
+		void			testEcho();
 
-	public:
-		template< typename HANDLER, typename OBJECT >
-		void		setCloseHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcCloseHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
+		/**
+		 * 设置连接到服务器时的处理
+		 */
+		void			setConnectHandler( std::function<void( XClient* )> handler );
+
+		/**
+		 * 设置关闭时的处理
+		 * 用于服务器主动断开连接
+		 */
+		void			setCloseHandler( std::function<void( size_t )> handler );
+
+		/**
+		 * 设置接收到数据时的处理
+		 */
+		void			setRecvHandler( std::function<void( XClient*, XAsioRecvPacket& )> handler );
 
 	protected:
 		/**
 		 * 释放会话
 		 */
-		void		release();
+		void			release();
 		
 		/**
 		 * 主动接收
@@ -83,14 +97,14 @@ namespace XGAME
 		 */
 		virtual void	recv();
 		
-		void		onConnect( TcpSessionPtr session );
-		void		onRecv( XAsioBuffer& buff );
-		void		onSend( size_t bytesTransferred );
-		void		onResolve();
-		void		onClose( size_t id );
-		void		onLog( const char* pLog );
+		virtual void	onConnect( TcpSessionPtr session );
+		virtual void	onRecv( XAsioBuffer& buff );
+		void			onSend( size_t bytesTransferred );
+		void			onResolve();
+		void			onClose( size_t id );
+		void			onLog( const char* pLog );
 		
-		void		onConnTimeoutCallback( const boost::system::error_code& ec );
+		void			onConnTimeoutCallback( const boost::system::error_code& ec );
 
 	protected:
 		/**
@@ -109,7 +123,7 @@ namespace XGAME
 		/**
 		 * 编号，用于池管理
 		 */
-		unsigned int		m_id;
+		unsigned int		m_iClientId;
 
 		/**
 		 * 连接信息
@@ -135,6 +149,8 @@ namespace XGAME
 		bool				m_bReadHeader;
 		XAsioRecvPacket		m_recvPacket;
 		
-		std::function<void( size_t )>			m_funcCloseHandler;
+		std::function<void( size_t )>						m_funcCloseHandler;
+		std::function<void( XClient*, XAsioRecvPacket& )>	m_funcRecvHandler;
+		std::function<void( XClient* )>						m_funcConnectHandler;
 	};
 }

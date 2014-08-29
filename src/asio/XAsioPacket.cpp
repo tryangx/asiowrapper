@@ -235,15 +235,18 @@ namespace XGAME
 		return sizeof(XAsioPacketHeader);
 	}
 	
-	XAsioPacketHeader::XAsioPacketHeader() : m_dwFlag(0), m_dwSize(0), m_dwToken(0), m_dwType(0)
+	XAsioPacketHeader::XAsioPacketHeader() : 
+		m_dwFlag(0), m_dwSize(0), m_wCRC(0), m_cToken(0), m_dwType(0),
+		m_cOp( EN_POP_MSG ), m_dwDestId(0)
 	{
 	}
 
-	void XAsioPacketHeader::setType( unsigned long type )
+	void XAsioPacketHeader::setCmdOp( unsigned int destId )
 	{
-		m_dwType = type;
+		m_cOp = EN_POP_CMD;
+		m_dwDestId = destId;
 	}
-
+/*
 	void XAsioPacketHeader::input( XAsioBuffer& buff )
 	{
 		memcpy_s( this, XAsioPacketHeader::getHeaderSize(), buff.getData(), buff.getDataSize() );
@@ -251,11 +254,11 @@ namespace XGAME
 		{
 			throw std::runtime_error( "out of Packet length" );
 		}
-	}
+	}*/
 	
 	//------------------------------------
 
-	XAsioSendPacket::XAsioSendPacket( unsigned long type, char* pBuf )
+	XAsioSendPacket::XAsioSendPacket( unsigned int type, char* pBuf )
 	{
 #ifdef _DEBUG
 		memset( m_tempBuffer, 0, sizeof( m_tempBuffer ) );
@@ -267,11 +270,11 @@ namespace XGAME
 		m_pCurPtr = m_pData + sizeof(XAsioPacketHeader);
 	}
 
-	_inline XAsioPacketHeader*	XAsioSendPacket::getHeader() { return m_pHeader; }
+	XAsioPacketHeader*	XAsioSendPacket::getHeader() { return m_pHeader; }
 
-	_inline int	XAsioSendPacket::getCurPos() { return m_pHeader->m_dwSize; }
+	int	XAsioSendPacket::getCurPos() { return m_pHeader->m_dwSize; }
 
-	_inline char* XAsioSendPacket::getCurPtr() { return m_pCurPtr; };
+	char* XAsioSendPacket::getCurPtr() { return m_pCurPtr; };
 	
 	void XAsioSendPacket::reset()
 	{
@@ -319,7 +322,8 @@ namespace XGAME
 
 	//------------------------------------
 
-	XAsioRecvPacket::XAsioRecvPacket() : m_pData( NULL ), m_pHeader( NULL ), m_pCurPtr( NULL ), m_bHeaderReaded( false )
+	XAsioRecvPacket::XAsioRecvPacket() : m_pData( NULL ), m_pHeader( NULL ), m_pCurPtr( NULL ), 
+		m_bHeaderReaded( false ), m_dwFromId( 0 )
 	{
 	}
 	XAsioRecvPacket::XAsioRecvPacket( const XAsioRecvPacket& packet )
@@ -339,6 +343,10 @@ namespace XGAME
 	bool XAsioRecvPacket::isReady()
 	{
 		return m_pHeader && !m_bHeaderReaded;
+	}
+	void XAsioRecvPacket::setFromId( unsigned int id )
+	{
+		m_dwFromId = id;
 	}
 	XAsioPacketHeader* XAsioRecvPacket::getHeader()
 	{
@@ -390,6 +398,13 @@ namespace XGAME
 	{
 		buff.detach();
 		setData( (const char*)buff.getData(), buff.getDataSize() );
+	}
+
+	void XAsioRecvPacket::exportBuffer( XAsioBuffer& buff )
+	{
+		buff.clear();
+		buff.writeBuffer( m_headerBuff );
+		buff.writeBuffer( m_packetBuff );
 	}
 
 	void XAsioRecvPacket::setData( const char* pBuffer, size_t size )
@@ -467,7 +482,7 @@ namespace XGAME
 		return *this;
 	}
 	
-	_inline unsigned long XAsioRecvPacket::getRemainSize()
+	_inline unsigned int XAsioRecvPacket::getRemainSize()
 	{
 		if ( m_pHeader == NULL || m_pCurPtr == NULL )
 		{

@@ -11,6 +11,9 @@
 
 namespace XGAME
 {
+	//前10000号保留
+#define CLIENT_START_ID		10000
+
 	class XServer;
 	class XServerSession;
 
@@ -24,53 +27,63 @@ namespace XGAME
 	{
 	public:
 		static ServerSessionPtr	create( TcpSessionPtr ptr );
-		
-		/**
-		 * 静态日志控制接口
-		 */
-		static void		setLogHandler( std::function<void( const char* )> handler );
-		static void		setRecvHandler( std::function<void( XServerSession&, XAsioRecvPacket& )> handler );
-		static void		onLogHandler( const char* pLog );
 
 	protected:
-		static std::function<void( const char* )>						m_sfuncLogHandler;
-		static std::function<void( XServerSession&, XAsioRecvPacket& )>	m_sfuncRecvHandler;
+		static std::function<void( const char* )>			m_sfuncLogHandler;
 
 	public:
 		XServerSession();
 		XServerSession( TcpSessionPtr ptr );
+		~XServerSession();
 
 		/**
 		 * 初始化
 		 * @param ptr 指定会话的对象
 		 */
-		void		init( TcpSessionPtr ptr = nullptr );
+		void			init( TcpSessionPtr ptr = nullptr );
 
-		void		release();
+		/**
+		 * 得到会话ID
+		 */
+		unsigned int	getSessionId();
+
+		/**
+		 * 释放会话相关handler
+		 */
+		void			release();
 
 		/**
 		 * 是否已启动
 		 */
-		bool		isStarted();
+		bool			isStarted();
 
 		/**
 		 * 是否已停止
 		 */
-		bool		isOpen();
+		bool			isOpen();
 
 		/**
 		 * 发送
 		 */
-		void		send( XAsioBuffer& buff );
+		void			send( XAsioBuffer& buff );
 
 		/**
 		 * 断开
 		 */
-		void		close();
+		void			close();
+
+		/**
+		 * 日志的处理
+		 */
+		void			setLogHandler( std::function<void( const char* )> handler );
+		/**
+		 * 接收的处理
+		 */
+		void			setRecvHandler( std::function<void( XServerSession*, XAsioRecvPacket& )> handler );
 		
 	protected:
 		void			recv();
-
+	
 		void			onLog( const char* pLog );
 
 		virtual void	onClose();
@@ -88,6 +101,9 @@ namespace XGAME
 		*/
 		bool				m_bIsStarted;
 		XAsioRecvPacket		m_recvPacket;
+
+		std::function<void( XServerSession*, XAsioRecvPacket& )>	m_funcRecvHandler;
+		std::function<void( const char* )>		m_funcLogHandler;
 	};
 
 	//  服务器
@@ -103,10 +119,18 @@ namespace XGAME
 		TcpServerPtr		getService();
 
 		/**
+		 * 是否启动
+		 */
+		bool				isStarted();
+
+		/**
 		 * 获取会话
 		 */
 		ServerSessionPtr	getSession( unsigned int id );
 		
+		/**
+		 * 关闭会话
+		 */
 		void				closeSession( unsigned int id );
 
 		/**
@@ -154,23 +178,23 @@ namespace XGAME
 		bool		queryRecvPacket( XAsioRecvPacket& packet );
 		
 	public:
-		template< typename HANDLER, typename OBJECT >
-		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
+		void		setLogHandler( std::function<void( const char* )> handler );
+		void		setConnectHandler( std::function<void( XServerSession* )> handler );
 		
 	protected:
 		/**
 		 * 创建会话
 		 */
-		virtual ServerSessionPtr	createSession();
+		virtual XServerSession*	createSession();
 
-		unsigned int		queryValidId();
+		unsigned int	queryValidId();
 		
-		void		onStartServer();
-		void		onAccept( TcpSessionPtr );
-		void		onCancel();
-		void		onSessionClose( size_t id );		
-		void		onSessionRecv( XServerSession& session, XAsioRecvPacket& packet );
-		void		onLog( const char* pLog );
+		void			onStartServer();
+		void			onAccept( TcpSessionPtr );
+		void			onCancel();
+		void			onSessionClose( size_t id );		
+		void			onSessionRecv( XServerSession* pSession, XAsioRecvPacket& packet );
+		void			onLog( const char* pLog );
 
 	protected:
 		/**
@@ -205,5 +229,6 @@ namespace XGAME
 		boost::mutex					m_packetMutex;
 
 		std::function<void( const char* )>			m_funcLogHandler;
+		std::function<void( XServerSession* )>		m_funcAcceptHandler;
 	};
 }

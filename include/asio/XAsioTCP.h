@@ -8,8 +8,6 @@
 
 namespace XGAME
 {
-#define DEFAULT_XASIO_PORT		7777
-
 	enum enBufferType
 	{
 		SESSION_SEND_BUFFER,
@@ -58,7 +56,7 @@ namespace XGAME
 		/**
 		 * 是否打开
 		 */
-		bool			isOpen();			
+		bool			isOpen();
 
 		/**
 		 * 关闭会话
@@ -158,10 +156,8 @@ namespace XGAME
 		virtual void	connect( const std::string& host, const std::string& protocol );
 		
 	public:
-		template< typename HANDLER, typename OBJECT >
-		void			setConnectHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcConnectHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
-		template< typename HANDLER, typename OBJECT >
-		void			setReconnectHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcReconnectHandler = std::bind( eventHandler, eventHandlerObject ); }
+		void			setConnectHandler( std::function<void( TcpSessionPtr )> );
+		void			setReconnectHandler( std::function<void()> );
 		
 	protected:
 		XAsioTCPClient( XAsioService& io );
@@ -223,15 +219,13 @@ namespace XGAME
 		 * 侦听的响应处理函数
 		 * 函数原型为void handler( XAsioTCPSession session ) 
 		 */
-		template< typename HANDLER, typename OBJECT >
-		void			setAcceptHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcAcceptHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
+		void			setAcceptHandler( std::function<void( TcpSessionPtr )> handler );
 
 		/**
 		 * 停止侦听的响应处理函数
 		 * 函数原型为void handler( XAsioTCPSession session ) 
 		 */
-		template< typename HANDLER, typename OBJECT >
-		void			setCancelHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcCancelHandler = std::bind( eventHandler, eventHandlerObject ); }
+		void			setCancelHandler( std::function<void()> handler );
 		
 	protected:
 		XAsioTCPServer( XAsioService& io );

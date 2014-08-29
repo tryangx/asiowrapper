@@ -6,8 +6,8 @@
 #include "XAsioHelper.h"
 #include "XAsioPacker.h"
 
-#ifndef DEFAULT_PACKER
-#define DEFAULT_PACKER	XAsioPacker
+#ifndef DEFAULT_PORT
+#define DEFAULT_PORT	XAsioPacker
 #endif
 
 using namespace boost::asio::ip;

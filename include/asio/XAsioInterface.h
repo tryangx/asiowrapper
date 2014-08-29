@@ -30,8 +30,7 @@ namespace XGAME
 		virtual void	connect( const std::string& host, const std::string& protocol ) = 0;
 		
 	public:
-		template< typename HANDLER, typename OBJECT >
-		void			setResolveHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcResolveHandler = std::bind( eventHandler, eventHandlerObject ); }
+		void			setResolveHandler( std::function<void()> handler );
 		
 	protected:
 		std::function<void()>	m_funcResolveHandler;
