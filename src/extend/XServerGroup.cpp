@@ -7,14 +7,22 @@ namespace XGAME
 
 #define DEFAULT_PORT		8000
 
-	stServerEndPoint::stServerEndPoint() : _ip( NULL ), _port( 0 ), _type( EN_APPSERVER_COUNT ) {}
-	stServerEndPoint::stServerEndPoint( const char* ip, short port, enAppServerType type ) : _ip( ip ), _port( port ), _type( type ) {}
+	stAppServerEndPoint::stAppServerEndPoint() : _ip( NULL ), _port( 0 ), _type( EN_APPSERVER_COUNT ) {}
+	stAppServerEndPoint::stAppServerEndPoint( const char* ip, short port, enAppServerType type ) : _ip( ip ), _port( port ), _type( type ) {}
 	
-	stServerConfig::stServerConfig() : _listenPort( 0 )
+	stAppServerConfig::stAppServerConfig() : _listenPort( 0 )
 	{
 	}
 
-	void stServerConfig::addEndPoint( stServerEndPoint& ep )
+	void stAppServerConfig::clone( stAppServerConfig& config )
+	{
+		_listenPort		= config._listenPort;
+		_serverType		= config._serverType;
+		_sName			= config._sName;
+		_mapSrvEndPoint	= config._mapSrvEndPoint;
+	}
+
+	void stAppServerConfig::addEndPoint( stAppServerEndPoint& ep )
 	{
 		_mapSrvEndPoint[ep._type] = ep;
 	}
@@ -26,78 +34,94 @@ namespace XGAME
 	//			|
 	//		  CLIENT
 
-	void stServerConfig::testGateConfig()
+	void stAppServerConfig::testGateConfig()
 	{
 		_sName = "[gate]";
 		_serverType = EN_APPSERVER_GATE;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		//addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_CENTER, EN_APPSERVER_CENTER ) );
-		addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_WORLD, EN_APPSERVER_WORLD ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_WORLD, EN_APPSERVER_WORLD ) );
 	}
-	void stServerConfig::testWorldConfig()
+	void stAppServerConfig::testWorldConfig()
 	{
 		_sName = "[world]";
 		_serverType = EN_APPSERVER_WORLD;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_DB, EN_APPSERVER_DB ) );
-		addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_LOG, EN_APPSERVER_LOG ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_DB, EN_APPSERVER_DB ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_LOG, EN_APPSERVER_LOG ) );
 	}
-	void stServerConfig::testDBConfig()
+	void stAppServerConfig::testDBConfig()
 	{
 		_sName = "[db]";
 		_serverType = EN_APPSERVER_DB;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		//addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_CENTER, EN_APPSERVER_CENTER ) );
+		//addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_WORLD, EN_APPSERVER_WORLD ) );
 	}
-	void stServerConfig::testLogConfig()
+	void stAppServerConfig::testLogConfig()
 	{
 		_sName = "[log]";
 		_serverType = EN_APPSERVER_LOG;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		//addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_CENTER, EN_APPSERVER_CENTER ) );
+		//addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_CENTER, EN_APPSERVER_CENTER ) );
 	}
 
-	void stServerConfig::testCenterConfig()
+	void stAppServerConfig::testCenterConfig()
 	{
 		_sName = "[center]";
 		_serverType = EN_APPSERVER_CENTER;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_WORLD, EN_APPSERVER_WORLD ) );
-		addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_GATE, EN_APPSERVER_GATE ) );
-		addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_LOG, EN_APPSERVER_LOG ) );
-		addEndPoint( stServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_DB, EN_APPSERVER_DB ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_WORLD, EN_APPSERVER_WORLD ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_GATE, EN_APPSERVER_GATE ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_LOG, EN_APPSERVER_LOG ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_DB, EN_APPSERVER_DB ) );
 	}
 
 	//--------Connector Server
 
-	XConnector::XConnector( XAsioService& service ) : m_ioService( service ), XClient( service )
+	XAppConnector::XAppConnector( XAsioService& service ) : m_ioService( service ), XClient( service ), m_serverType( EN_APPSERVER_UNKNOW )
 	{
 	}
 
-	void XConnector::setServerId( int id )
+	XAppConnector::~XAppConnector()
 	{
-		m_iServerId = id;
+		if ( getService() )
+		{
+			m_ioService.removeService( getService() );
+		}
 	}
 
-	void XConnector::onConnect( TcpSessionPtr session )
+	void XAppConnector::setConnectorId( unsigned int id )
 	{
+		m_iConnectId = id;
+	}
+
+	void XAppConnector::setServerType( enAppServerType type )
+	{
+		m_serverType = type;
+	}
+
+	void XAppConnector::onConnect( TcpSessionPtr session )
+	{
+		onLog( "connect to appserver" );
+
 		XClient::onConnect( session );
 		
+		//register
 		XAsioSendPacket packet( 0 );
-		packet.getHeader()->setOp( EN_POP_HEARTBEAT );
+		packet.getHeader()->setOp( EN_POP_REGISTER );
+		packet << int( m_serverType ) << int( m_iConnectId );
 		send( packet );
 	}
-	void XConnector::onRecv( XAsioBuffer& buff )
+	void XAppConnector::onRecv( XAsioBuffer& buff )
 	{
 		XClient::onRecv( buff );
 	}
 
-	bool XConnector::connect( stServerEndPoint& ep )
+	bool XAppConnector::connect( stAppServerEndPoint& ep )
 	{
 		if ( isConnected() )
 		{
@@ -105,30 +129,16 @@ namespace XGAME
 		}
 		setAddress( ep._ip, ep._port );
 		XClient::connect();
-		m_ioService.startService( getService().get(), 1 );
-/*
-		if ( m_ptrClient && !m_ptrClient->isConnected() )
-		{
-			return false;
-		}
-		if ( !m_ptrClient )
-		{
-			m_ptrClient = XClientPtr( new XClient( m_ioService ) );
-		}
-		m_ptrClient->setClientId( m_iServerId );
-		m_ptrClient->setAddress( ep._ip, ep._port );
-		m_ptrClient->connect();		
-		m_ioService.startService( m_ptrClient->getService().get(), 1 );
-		*/
+		m_ioService.startService( getService(), 1 );
 		return true;
 	}
 
-	void XConnector::send( XAsioBuffer& buff )
+	void XAppConnector::send( XAsioBuffer& buff )
 	{
 		XClient::send( buff );
 	}
 
-	void XConnector::send( XAsioSendPacket& packet )
+	void XAppConnector::send( XAsioSendPacket& packet )
 	{
 		XAsioBuffer buff;
 		packet.output( buff );
@@ -136,11 +146,27 @@ namespace XGAME
 	}
 
 	//--------App server
+	std::string	XAppServer::m_sAppServerName[EN_APPSERVER_COUNT] = {
+		"gate",
+		"center",
+		"world",
+		"db",
+		"log",
+	};
+
 	XAppServer::XAppServer() : m_bConfigLoaded( false ), m_funcLogHandler( nullptr )
 	{
 	}
 	XAppServer::~XAppServer()
 	{
+		m_procPacketThread.interrupt();
+		
+		stopServer();
+
+		if ( m_ptrService && m_ptrServer )
+		{
+			m_ptrService->removeService( m_ptrServer->getService().get() );
+		}
 	}
 
 	void XAppServer::setIoService( boost::shared_ptr<class XAsioService>& ioService )
@@ -154,14 +180,10 @@ namespace XGAME
 		port = m_serverConfig._listenPort;
 	}
 
-	bool XAppServer::loadConfig( stServerConfig* pConfig )
+	bool XAppServer::loadConfig( stAppServerConfig& config )
 	{
-		if ( !pConfig )
-		{
-			return false;
-		}
 		m_bConfigLoaded = true;
-		m_serverConfig = *pConfig;
+		m_serverConfig.clone( config );
 		return true;
 	}
 
@@ -190,21 +212,26 @@ namespace XGAME
 
 	bool XAppServer::connectAppServer()
 	{
-		std::unordered_map<int,stServerEndPoint>::iterator it = m_serverConfig._mapSrvEndPoint.begin();
+		std::unordered_map<int,stAppServerEndPoint>::iterator it = m_serverConfig._mapSrvEndPoint.begin();
 		for ( ; it != m_serverConfig._mapSrvEndPoint.end(); it++ )
 		{
-			stServerEndPoint& ep = it->second;
-			if ( ep._port != 0 )
+			stAppServerEndPoint& ep = it->second;
+			if ( ep._port == 0 )
 			{
-				XConnector* pConn = getConnector( ep._type );
-				if ( !pConn )
-				{
-					m_ptrConnectors[ep._type] = XConnectorPtr( new XConnector( *m_ptrService.get() ) );
-					pConn = getConnector( ep._type );
-					pConn->setServerId( ep._type );
-				}
+				continue;
+			}
+			XAppConnector* pConn = getConnector( ep._type );
+			if ( !pConn )
+			{
+				m_ptrConnectors[ep._type] = XAppConnectorPtr( new XAppConnector( *m_ptrService.get() ) );
+				pConn = getConnector( ep._type );
+				pConn->setConnectorId( ep._type );
+				pConn->setServerType( m_serverConfig._serverType );
+			}
+			if ( !pConn->isConnected() )
+			{
 				pConn->connect( ep );
-				onLog( outputString( "conn %s %d", ep._ip, ep._port ) );
+				onLog( outputString( "try conn %s %d", ep._ip, ep._port ) );
 			}
 		}
 		return true;
@@ -212,13 +239,13 @@ namespace XGAME
 
 	bool XAppServer::stopServer()
 	{
-		std::unordered_map<int,stServerEndPoint>::iterator it = m_serverConfig._mapSrvEndPoint.begin();
+		std::unordered_map<int,stAppServerEndPoint>::iterator it = m_serverConfig._mapSrvEndPoint.begin();
 		for ( ; it != m_serverConfig._mapSrvEndPoint.end(); it++ )
 		{
-			stServerEndPoint& ep = it->second;
+			stAppServerEndPoint& ep = it->second;
 			if ( ep._port != 0 )
 			{
-				XConnector* pConn = getConnector( ep._type );
+				XAppConnector* pConn = getConnector( ep._type );
 				if (  pConn )
 				{
 					pConn->disconnect();
@@ -242,7 +269,7 @@ namespace XGAME
 		{
 			return;
 		}
-		m_processThread = thread( boost::bind( &XAppServer::onProcessPacketThread, this ) );
+		m_procPacketThread = thread( boost::bind( &XAppServer::onProcessPacketThread, this ) );
 	}
 
 	void XAppServer::onProcessPacketThread()
@@ -250,13 +277,18 @@ namespace XGAME
 		XAsioRecvPacket packet;
 		while( m_ptrServer->isStarted() )
 		{
+			boost::this_thread::interruption_point();
 			if ( m_ptrServer->queryRecvPacket( packet ) )
 			{
 				onProcessPacket( packet );
 			}
+			else
+			{
+				this_thread::sleep( get_system_time() + posix_time::milliseconds( 20 ) );
+			}
 		}
 	}
-	XConnector* XAppServer::getConnector( enAppServerType type )
+	XAppConnector* XAppServer::getConnector( enAppServerType type )
 	{
 		if ( m_ptrConnectors[type] )
 		{
@@ -264,13 +296,28 @@ namespace XGAME
 		}
 		return nullptr;
 	}
+	XServerSession*	XAppServer::getAppServer( enAppServerType type )
+	{
+		MAP_APPSERVER_SESSION& container = m_mapAppSrvSession[type];
+		XServerSession* pSession = container.empty() ? NULL : container.begin()->second;
+		return pSession;
+	}
 	void XAppServer::sendToServer( enAppServerType type, XAsioBuffer& buffer )
 	{
-		XConnector* pConn = getConnector( type );
+		XAppConnector* pConn = getConnector( type );
 		if ( pConn )
 		{
+			onLog( "send msg" );
 			pConn->send( buffer );
+			return;
 		}
+		XServerSession* pSession = getAppServer( type );
+		if ( pSession )
+		{
+			pSession->send( buffer );
+			return;
+		}
+		onLog( outputString( "Server %s isn't connected!", m_sAppServerName[type].c_str() ) );
 	}
 	void XAppServer::sendToServer( enAppServerType type, XAsioSendPacket& packet )
 	{
@@ -294,24 +341,48 @@ namespace XGAME
 
 	void XAppServer::onProcessPacket( XAsioRecvPacket& recv )
 	{
-		unsigned char op = recv.getHeader()->getOp();
-		if ( op == EN_POP_CMD )
+		try
 		{
-			processCmdPacket( recv );
-			onLog( outputString( "recv cmd dest %d", recv.getHeader()->getDestID() ) );
+			unsigned char op = recv.getHeader()->getOp();
+			if ( op == EN_POP_CMD )
+			{
+				onLog( outputString( "recv cmd dest %d", recv.getHeader()->getDestID() ) );
+				onProcessCmdPacket( recv );
+			}
+			else if ( op == EN_POP_MSG )
+			{
+				onLog( outputString( "recv msg type %d", recv.getHeader()->getType() ) );
+				onProcessMsgPacket( recv );
+			}
+			else if ( op == EN_POP_HEARTBEAT )
+			{
+				onLog( "recv heartbeat" );
+				onProcessHeartBeatPacket( recv );
+			}
+			else if ( op == EN_POP_REGISTER )
+			{
+				onProcessRegPacket( recv );
+			}
+			else if ( op == EN_POP_GM )
+			{
+				onProcessGMPacket( recv );
+			}
+			else if ( op == EN_POP_ECHO )
+			{
+				onProcessEchoPacket( recv );
+			}
 		}
-		else if ( op == EN_POP_MSG )
+		catch(std::runtime_error&e)
 		{
-			onProcessMsgPacket( recv );
-			onLog( outputString( "recv msg type %d", recv.getHeader()->getType() ) );
+			onLog( e.what() );
 		}
-		else if ( op == EN_POP_HEARTBEAT )
+		catch(...)
 		{
-			onLog( "recv heartbeat" );
+			onLog( "unknow error" );
 		}
 	}
 
-	void XAppServer::processCmdPacket( XAsioRecvPacket& recv )
+	void XAppServer::onProcessCmdPacket( XAsioRecvPacket& recv )
 	{
 		unsigned int destId = recv.getHeader()->getDestID();
 		XAsioBuffer buffer;
@@ -339,5 +410,33 @@ namespace XGAME
 			sendToServer( EN_APPSERVER_LOG, buffer );
 			break;
 		}
+	}
+
+	void XAppServer::onProcessRegPacket( XAsioRecvPacket& recv )
+	{
+		int type;
+		int id;
+		recv >> type >> id;
+		if ( type < EN_APPSERVER_COUNT )
+		{
+			MAP_APPSERVER_SESSION& container = m_mapAppSrvSession[type];
+			XServerSession* pSession = m_ptrServer->getSession( recv.getFromID() );
+			if ( pSession )
+			{
+				container.insert( std::make_pair( recv.getFromID(), pSession ) );
+			}			
+		}
+	}
+	
+	void XAppServer::onProcessGMPacket( XAsioRecvPacket& recv )
+	{
+	}
+
+	void XAppServer::onProcessHeartBeatPacket( XAsioRecvPacket& recv )
+	{
+	}
+
+	void XAppServer::onProcessEchoPacket( XAsioRecvPacket& recv )
+	{
 	}
 }

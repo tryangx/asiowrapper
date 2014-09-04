@@ -17,7 +17,7 @@ namespace XGAME
 	class XServer;
 	class XServerSession;
 
-	typedef boost::shared_ptr<class XServerSession>		ServerSessionPtr;
+	typedef boost::shared_ptr<class XServerSession>		XServerSessionPtr;
 	
 	typedef XSingleton<XAsioStat>	XAsioStatServerAgent;
 
@@ -26,7 +26,7 @@ namespace XGAME
 	class XGAME_API XServerSession : public boost::enable_shared_from_this<XServerSession>
 	{
 	public:
-		static ServerSessionPtr	create( TcpSessionPtr ptr );
+		static XServerSessionPtr	create( TcpSessionPtr ptr );
 
 	protected:
 		static std::function<void( const char* )>			m_sfuncLogHandler;
@@ -107,7 +107,7 @@ namespace XGAME
 	};
 
 	//  服务器
-	class XServer //: public XAsioPool<XServerSession>
+	class XServer // : public XAsioPool<XServerSession>
 	{
 	public:
 		XServer( XAsioService& service );
@@ -126,7 +126,7 @@ namespace XGAME
 		/**
 		 * 获取会话
 		 */
-		ServerSessionPtr	getSession( unsigned int id );
+		XServerSession*		getSession( unsigned int id );
 		
 		/**
 		 * 关闭会话
@@ -210,7 +210,7 @@ namespace XGAME
 		/**
 		 * 连到到服务器会话数据
 		 */
-		typedef std::tr1::unordered_map<size_t, ServerSessionPtr>	MAPSERVERSESSIONPTR;
+		typedef std::tr1::unordered_map<size_t, XServerSessionPtr>	MAPSERVERSESSIONPTR;
 		MAPSERVERSESSIONPTR				m_mapSession;
 		unsigned int					m_iAllocateId;
 		boost::mutex					m_sessionMutex;

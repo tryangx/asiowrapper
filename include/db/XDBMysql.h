@@ -107,8 +107,10 @@ namespace XGAME
 		 */
 		Connection*	getConnection();
 
-		template< typename HANDLER, typename OBJECT >
-		void		setLogHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { m_funcLogHandler = std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ); }
+		/**
+		 * 设置日志处理
+		 */
+		void		setLogHandler( std::function<void( const char* )> handler );
 
 	protected:
 		Statement*	createStatement( Connection*& pConn );
@@ -147,8 +149,6 @@ namespace XGAME
 		MAP_PREPARESTATEMENT	m_mapPrepareStatment;
 		boost::mutex			m_mutexPrepareStatment;
 		
-		//std::function<void( const char* )>	m_funcLogHandler;
-
-		boost::function<void( const char* )>	m_funcLogHandler;
+		std::function<void( const char* )>	m_funcLogHandler;
 	};
 }

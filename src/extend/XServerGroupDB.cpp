@@ -12,12 +12,12 @@ namespace XGAME
 	{
 		switch( recv.getHeader()->getType() )
 		{
-		case EN_MSG_LOGIN:
+		case EN_CMD_W2D_LOGIN_REQ:
 			{
 				unsigned int id;
 				recv >> id;
-				onLog( outputString( "DB: recv [%d] login", id ) );
-				XAsioSendPacket send( EN_D2W_LOGIN_RES );
+				onLog( outputString( "recv [%d] login", id ) );
+				XAsioSendPacket send( EN_CMD_D2W_LOGIN_RES );
 				send.getHeader()->setCmdOp( EN_APPSERVER_WORLD );
 				send << int( 12345 );
 				send << std::string( "playername" );
@@ -25,14 +25,14 @@ namespace XGAME
 				sendToServer( EN_APPSERVER_WORLD, send );
 			}
 			break;
-		case EN_MSG_LOGOUT:
+		case EN_CMD_W2D_LOGOUT_REQ:
 			{
 				unsigned int id;
 				recv >> id;
-				onLog( outputString( "DB: recv [%d] logout", id ) );
-				XAsioSendPacket send( EN_D2W_LOGIN_RES );
+				onLog( outputString( "recv [%d] logout", id ) );
+				XAsioSendPacket send( EN_CMD_D2W_LOGOUT_RES );
 				send.getHeader()->setCmdOp( EN_APPSERVER_WORLD );
-				sendToServer( EN_APPSERVER_CENTER, send );
+				sendToServer( EN_APPSERVER_CENTER, send );				
 			}
 			break;
 		}

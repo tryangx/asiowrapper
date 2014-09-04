@@ -26,7 +26,8 @@ namespace XGAME
 		release();
 	}
 
-	TcpClientPtr XClient::getService() { return m_ptrTCPClient; }
+	TcpClientPtr XClient::getServicePtr() { return m_ptrTCPClient; }
+	XAsioTCPClient*	XClient::getService() { return m_ptrTCPClient ? m_ptrTCPClient.get() : NULL; }
 
 	unsigned int XClient::getClientId() const { return m_iClientId; }
 	void XClient::setClientId( unsigned int id )
@@ -76,17 +77,14 @@ namespace XGAME
 
 	void XClient::connect()
 	{
-		if ( !m_bInit )
+		if ( m_bIsConnected )
 		{
-			m_bInit = true;			
-		}
-		if ( !m_bInit || m_bIsConnected )
-		{
-			onLog( "Client isn't initailized" );
+			onLog( "Client is already connected!" );
 			return;
 		}
+		m_bInit = true;
 		m_ptrTCPClient.reset();
-		m_ptrTCPClient = XAsioTCPClient::create( m_service );		
+		m_ptrTCPClient = XAsioTCPClient::create( m_service );
 		m_ptrTCPClient->setConnectHandler( std::bind( &XClient::onConnect, this, std::placeholders::_1 ) );
 		m_ptrTCPClient->setResolveHandler( std::bind( &XClient::onResolve, this ) );
 		m_ptrTCPClient->setLogHandler( std::bind( &XClient::onLog, this, std::placeholders::_1 ) );
@@ -122,7 +120,7 @@ namespace XGAME
 		
 	void XClient::send( XAsioBuffer& buff )
 	{
-		if ( !m_bInit || !m_bIsConnected )
+		if ( !m_bIsConnected )
 		{
 			return;
 		}
@@ -231,7 +229,7 @@ namespace XGAME
 			}
 			else
 			{
-				disconnect();
+				ON_CALLBACK_PARAM( m_funcConnectHandler, NULL );
 			}
 		}
 	}

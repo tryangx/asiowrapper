@@ -56,8 +56,14 @@ namespace XGAME
 	size_t XAsioBuffer::getDataSize() const { return m_bufData._dataSize; }
 	void XAsioBuffer::setDataSize( size_t size ) { m_bufData._dataSize = size; }
 	
-	void XAsioBuffer::detach() { m_bufData._bOwnsData = false; }
-	void XAsioBuffer::attach() { m_bufData._bOwnsData = true; }
+	void XAsioBuffer::detach()
+	{
+		m_bufData._bOwnsData = false;
+	}
+	void XAsioBuffer::attach()
+	{
+		m_bufData._bOwnsData = true;
+	}
 
 	_inline size_t XAsioBuffer::getRemainSize() { return m_bufData._pData != NULL ? m_bufData._dataSize - m_iCursorPos : 0; }
 
@@ -68,8 +74,7 @@ namespace XGAME
 			throw std::runtime_error( "Buffer is invalid, cann't resize!" );
 			return false;
 		}
-		if ( m_bufData._allocatedSize >= m_bufData._dataSize + newSize
-			|| m_bufData._dataSize + newSize > MAX_PACKET_SIZE )
+		if ( m_bufData._allocatedSize >= m_bufData._dataSize + newSize || m_bufData._dataSize + newSize > MAX_PACKET_SIZE )
 		{
 			return false;
 		}
@@ -100,7 +105,20 @@ namespace XGAME
 		m_bufData._dataSize			= size;
 		m_bufData._bOwnsData		= false;
 	}
+	void XAsioBuffer::import( XAsioBuffer& buffer )
+	{
+		if ( m_bufData._pData && m_bufData._bOwnsData )
+		{
+			throw std::runtime_error( "data is exist" );
+			return;
+		}
+		m_bufData._pData			= buffer.m_bufData._pData;
+		m_bufData._allocatedSize	= buffer.m_bufData._allocatedSize;
+		m_bufData._dataSize			= buffer.m_bufData._dataSize;
+		m_bufData._bOwnsData		= buffer.m_bufData._bOwnsData;
 
+		buffer.detach();
+	}
 	void XAsioBuffer::copy( const void* pData, size_t size )
 	{
 		writeData( (const char*)pData, size );
@@ -108,15 +126,6 @@ namespace XGAME
 	void XAsioBuffer::copy( XAsioBuffer& buffer )
 	{
 		writeBuffer( buffer );
-	}
-	void XAsioBuffer::import( XAsioBuffer& buffer )
-	{
-		m_bufData._pData			= buffer.m_bufData._pData;
-		m_bufData._allocatedSize	= buffer.m_bufData._allocatedSize;
-		m_bufData._dataSize			= buffer.m_bufData._dataSize;
-		m_bufData._bOwnsData		= buffer.m_bufData._bOwnsData;
-
-		buffer.detach();
 	}
 	void XAsioBuffer::writeBuffer( XAsioBuffer& buffer )
 	{
@@ -178,27 +187,29 @@ namespace XGAME
 	void XAsioBuffer::readData( const char* pData, size_t size )
 	{
 		assert( getRemainSize() >= size );
-		if ( getRemainSize() >= size )
+		if ( getRemainSize() < size )
 		{
-			char* pCur = (char*)m_bufData._pData + m_iCursorPos;
-			memcpy_s( (char*)pData, size, pCur, size );
-			m_iCursorPos += size;
-		}		
+			throw std::runtime_error( "out of packet size" );
+			return;
+		}
+		char* pCur = (char*)m_bufData._pData + m_iCursorPos;
+		memcpy_s( (char*)pData, size, pCur, size );
+		m_iCursorPos += size;
 	}
 
 	XAsioBuffer& XAsioBuffer::operator >> ( std::string &str )
 	{
-		assert( getRemainSize() >= sizeof(unsigned short) );
 		if ( getRemainSize() < sizeof(unsigned short) )
 		{
+			throw std::runtime_error( "out of packet size" );
 			return *this; 
 		}
 		unsigned short size = 0;
 		*this >> size;
 
-		assert( getRemainSize() >= size && size <= MAX_PACKET_SIZE );
 		if ( getRemainSize() < size || size > MAX_PACKET_SIZE )
 		{
+			throw std::runtime_error( "out of packet size" );
 			return *this;
 		}
 		char* pCur = (char*)m_bufData._pData + m_iCursorPos;
@@ -209,17 +220,17 @@ namespace XGAME
 
 	XAsioBuffer& XAsioBuffer::operator >> ( const char* pStr )
 	{
-		assert( getRemainSize() >= sizeof(unsigned short) );
 		if ( getRemainSize() < sizeof(unsigned short) )
 		{
+			throw std::runtime_error( "out of packet size" );
 			return *this; 
 		}
 		unsigned short size = 0;
 		*this >> size;
 
-		assert( getRemainSize() >= size && size <= MAX_PACKET_SIZE );
 		if ( getRemainSize() < size || size > MAX_PACKET_SIZE )
 		{
+			throw std::runtime_error( "out of packet size" );
 			return *this;
 		}
 		char* pCur = (char*)m_bufData._pData + m_iCursorPos;
@@ -246,15 +257,6 @@ namespace XGAME
 		m_cOp = EN_POP_CMD;
 		m_dwDestId = destId;
 	}
-/*
-	void XAsioPacketHeader::input( XAsioBuffer& buff )
-	{
-		memcpy_s( this, XAsioPacketHeader::getHeaderSize(), buff.getData(), buff.getDataSize() );
-		if ( m_dwSize > MAX_PACKET_SIZE )
-		{
-			throw std::runtime_error( "out of Packet length" );
-		}
-	}*/
 	
 	//------------------------------------
 
@@ -292,50 +294,55 @@ namespace XGAME
 	{
 		unsigned short size = strlen( pStr );
 		assert( getCurPos() + size <= MAX_PACKET_SIZE );
-		if ( getCurPos() + sizeof(unsigned short) + size <= MAX_PACKET_SIZE )
+		if ( getCurPos() + sizeof(unsigned short) + size > MAX_PACKET_SIZE )
 		{
-			*this << size;
-			memcpy_s( m_pCurPtr, MAX_PACKET_SIZE, pStr, size );
-			m_pHeader->m_dwSize += size;
-			m_pCurPtr += size;
+			throw std::runtime_error( "out of packet size" );
+			return *this;
 		}
+		*this << size;
+		memcpy_s( m_pCurPtr, MAX_PACKET_SIZE, pStr, size );
+		m_pHeader->m_dwSize += size;
+		m_pCurPtr += size;
 		return *this;
 	}
 
 	XAsioSendPacket& XAsioSendPacket::operator << ( const std::string& str )
 	{
-		unsigned short size = (unsigned short)str.size();
-		if ( size > MAX_PACKET_SIZE )
+		size_t size = str.length();
+		if ( getCurPos() + sizeof(unsigned short) + size > MAX_PACKET_SIZE )
 		{
+			throw std::runtime_error( "out of packet size" );
 			return *this;
 		}
-		assert( getCurPos() + sizeof(unsigned short) + size <= MAX_PACKET_SIZE );
-		if ( getCurPos() + sizeof(unsigned short) + size <= MAX_PACKET_SIZE )
-		{	
-			*this << size;
-			memcpy_s( m_pCurPtr, MAX_PACKET_SIZE, str.c_str(), size );
-			m_pHeader->m_dwSize += size;
-			m_pCurPtr += size;
-		}
+		*this << size;
+		memcpy_s( m_pCurPtr, MAX_PACKET_SIZE, str.c_str(), size );
+		m_pHeader->m_dwSize += size;
+		m_pCurPtr += size;
 		return *this;
 	}
 
 	//------------------------------------
 
 	XAsioRecvPacket::XAsioRecvPacket() : m_pData( NULL ), m_pHeader( NULL ), m_pCurPtr( NULL ), 
-		m_bHeaderReaded( false ), m_dwFromId( 0 )
+		m_bHeaderReaded( false ), m_iFromId( 0 )
 	{
 	}
-	XAsioRecvPacket::XAsioRecvPacket( const XAsioRecvPacket& packet )
+	XAsioRecvPacket::XAsioRecvPacket( const XAsioRecvPacket& packet ) : m_iFromId( 0 )
 	{
 		import( const_cast<XAsioRecvPacket&>( packet ) );
 	}
 	XAsioRecvPacket::~XAsioRecvPacket()
 	{
-		m_headerBuff.clear();
-		m_packetBuff.clear();
+		clear();
 	}
-
+	void XAsioRecvPacket::setFromId( unsigned int id )
+	{
+		m_iFromId = id;
+	}
+	unsigned int XAsioRecvPacket::getFromID()
+	{
+		return m_iFromId;
+	}
 	bool XAsioRecvPacket::isEmpty()
 	{
 		return !m_bHeaderReaded;
@@ -344,13 +351,15 @@ namespace XGAME
 	{
 		return m_pHeader && !m_bHeaderReaded;
 	}
-	void XAsioRecvPacket::setFromId( unsigned int id )
-	{
-		m_dwFromId = id;
-	}
 	XAsioPacketHeader* XAsioRecvPacket::getHeader()
 	{
 		return m_pHeader;
+	}
+	void XAsioRecvPacket::clear()
+	{
+		m_iFromId = 0;
+		m_headerBuff.clear();
+		m_packetBuff.clear();
 	}
 	void XAsioRecvPacket::reset()
 	{
@@ -371,6 +380,8 @@ namespace XGAME
 	}
 	void XAsioRecvPacket::clone( XAsioRecvPacket& packet )
 	{
+		clear();
+		m_iFromId = packet.getFromID();
 		m_headerBuff.copy( packet.m_headerBuff );
 		m_packetBuff.copy( packet.m_packetBuff );
 		m_bHeaderReaded = packet.m_bHeaderReaded;
@@ -381,6 +392,8 @@ namespace XGAME
 
 	void XAsioRecvPacket::import( XAsioRecvPacket& packet )
 	{
+		clear();
+		m_iFromId = packet.getFromID();
 		m_headerBuff.import( packet.m_headerBuff );
 		m_packetBuff.import( packet.m_packetBuff );
 		m_bHeaderReaded = packet.m_bHeaderReaded;
@@ -445,9 +458,9 @@ namespace XGAME
 
 	XAsioRecvPacket& XAsioRecvPacket::operator >> ( char* pStr )
 	{
-		assert( getRemainSize() >= sizeof(unsigned short) );
 		if( getRemainSize() < sizeof(unsigned short) )
 		{
+			throw std::runtime_error( "out of packet size" );
 			return *this; 
 		}
 		unsigned short size;
@@ -464,10 +477,10 @@ namespace XGAME
 	}
 	XAsioRecvPacket& XAsioRecvPacket::operator >> ( std::string& str )
 	{
-		assert( getRemainSize() >= sizeof(unsigned short) );
 		if( getRemainSize() < sizeof(unsigned short) )
 		{
-			return *this; 
+			throw std::runtime_error( "out of packet size" );
+			return *this;
 		}
 		unsigned short size;
 		*this >> size;

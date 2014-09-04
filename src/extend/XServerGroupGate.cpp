@@ -10,6 +10,8 @@ namespace XGAME
 
 	void XGateServer::onProcessMsgPacket( XAsioRecvPacket& recv )
 	{
+		try
+		{
 		switch( recv.getHeader()->getType() )
 		{
 		case EN_MSG_LOGIN:
@@ -33,6 +35,11 @@ namespace XGAME
 				sendToServer( EN_APPSERVER_WORLD, send );
 			}
 			break;
+		}
+		}
+		catch(std::runtime_error& e)
+		{
+			onLog( e.what() );
 		}
 	}
 }

@@ -36,7 +36,6 @@ namespace XGAME
 		std::function<void()>	m_funcResolveHandler;
 	};
 
-
 	/**
 	 * 服务器接口声明
 	 */

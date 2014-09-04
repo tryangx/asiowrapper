@@ -71,6 +71,7 @@ namespace XGAME
 		
 		size_t						m_iServiceId;
 		bool						m_bIsStarted;
+		bool						m_bIsClosing;
 
 		std::function<void( const char* )>		m_funcLogHandler;
 	};

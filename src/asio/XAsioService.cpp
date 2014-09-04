@@ -17,7 +17,7 @@ namespace XGAME
 	XAsioInterface::XAsioInterface( XAsioService& service )
 		: m_funcLogHandler( nullptr ), 
 		m_service( service ), m_ioService( service.getIOService() ), m_strand( m_ioService ),
-		m_bIsStarted( false ), m_iServiceId( 0 )
+		m_bIsStarted( false ), m_bIsClosing( true ), m_iServiceId( 0 )
 	{
 		m_service.registerService( this );
 	}
@@ -27,14 +27,27 @@ namespace XGAME
 		m_funcLogHandler = nullptr;
 	}
 
-	bool XAsioInterface::isStarted() const { return m_bIsStarted; }
+	bool XAsioInterface::isStarted() const
+	{
+		return m_bIsStarted;
+	}
 
-	void XAsioInterface::startService() { if ( !m_bIsStarted ) { m_bIsStarted = true; init(); } }	
+	void XAsioInterface::startService()
+	{
+		if ( !m_bIsStarted )
+		{
+			m_bIsStarted = true;
+ init();
+		}
+	}
 	void XAsioInterface::stopService()
 	{
-		if ( m_bIsStarted ) { m_bIsStarted = false; release(); }
-	}
-	
+		if ( m_bIsStarted )
+		{
+			m_bIsStarted = false;
+			release();
+		}
+	}	
 	unsigned int XAsioInterface::getServiceId() const { return m_iServiceId; }
 	void XAsioInterface::setServiceId( unsigned int id ) { m_iServiceId = id; }
 	
@@ -126,6 +139,8 @@ namespace XGAME
 
 	XAsioService::~XAsioService()
 	{
+		forceStopAllServices();
+		m_srvContainer.clear();
 	}
 
 	bool XAsioService::isStarted() const { return m_bIsStarted; }
@@ -287,7 +302,7 @@ namespace XGAME
 
 	size_t XAsioService::runIOServiceThread( error_code& ec )
 	{
-		while (true)
+		//while (true)
 		{
 			try { return m_ioService.run(ec); }
 			catch ( const std::exception& ) {}

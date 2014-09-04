@@ -11,7 +11,7 @@ namespace XGAME
 	{
 		switch( recv.getHeader()->getType() )
 		{
-		case EN_S2S_LOG_NFY:
+		case EN_CMD_S2S_LOG_NFY:
 			std::string s;
 			recv >> s;
 			onLog( outputString( "write log:%s", s.c_str() ) );

@@ -32,11 +32,17 @@ namespace XGAME
 		//用于服务器间转发，包类型等数据不影响，只根据目标ID选择对应的目的服务器
 		EN_POP_CMD,
 
+		//应答测试
+		EN_POP_ECHO,
+
 		//C2S/S2C心跳
 		EN_POP_HEARTBEAT,
 
-		//应答
-		EN_POP_ECHO,
+		//注册
+		EN_POP_REGISTER,
+		
+		//GM
+		EN_POP_GM,
 	};
 
 	enum enXAsioPacketHeaderFlag
@@ -125,19 +131,7 @@ namespace XGAME
 		 * @return	返回分配是否成功
 		 */
 		bool		resize( size_t newSize );
-
-		/**
-		 * (深度)复制全部数据
-		 * 拥有所有权（不需要手动删除）
-		 */
-		void		copy( const void* pData, size_t size );
-
-		/**
-		 * (深度)复制全部缓存
-		 * 拥有所有权（不需要手动删除）
-		 */
-		void		copy( XAsioBuffer& buffer );
-		
+				
 		/**
 		 * 导入数据
 		 * 夺取原有缓冲数据的所有权，不复制数据
@@ -152,6 +146,18 @@ namespace XGAME
 		 */
 		void		import( XAsioBuffer& buffer );
 				
+		/**
+		 * (深度)复制全部数据
+		 * 拥有所有权（不需要手动删除）
+		 */
+		void		copy( const void* pData, size_t size );
+
+		/**
+		 * (深度)复制全部缓存
+		 * 拥有所有权（不需要手动删除）
+		 */
+		void		copy( XAsioBuffer& buffer );
+
 		/**
 		 * 追加数据
 		 */
@@ -321,7 +327,16 @@ namespace XGAME
 		 */
 		XAsioRecvPacket( const XAsioRecvPacket& packet );
 
-		void		setFromId( unsigned int id );
+		/**
+		 * 来源ID
+		 */
+		void				setFromId( unsigned int id );
+		unsigned int		getFromID();
+
+		/**
+		 * 来源ID
+		 */
+		void		clear();
 				
 		/**
 		 * 得到包头数据
@@ -408,7 +423,7 @@ namespace XGAME
 		XAsioBuffer				m_packetBuff;
 		bool					m_bHeaderReaded;
 
-		unsigned int			m_dwFromId;
+		unsigned int			m_iFromId;
 
 		XAsioPacketHeader*		m_pHeader;
 		char*					m_pData;

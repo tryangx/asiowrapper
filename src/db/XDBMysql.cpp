@@ -380,4 +380,8 @@ namespace XGAME
 			m_funcLogHandler( pLog );
 		}
 	}
+	void XDBMysql::setLogHandler( std::function<void( const char* )> handler )
+	{
+		m_funcLogHandler = handler;
+	}
 }

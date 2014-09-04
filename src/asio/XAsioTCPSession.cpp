@@ -3,14 +3,10 @@
 
 namespace XGAME
 {
-#define TIEMR_INTERVAL		50
+#define TIEMR_INTERVAL		50	
+
 	//-----------------------------
 	//	TCP连接
-	TcpSessionPtr XAsioTCPSession::create( XAsioService& io )
-	{
-		return TcpSessionPtr( new XAsioTCPSession( io ) )->shared_from_this();
-	}
-	
 	XAsioTCPSession::XAsioTCPSession( XAsioService& io )
 		: XAsioSession( io ), XAsioTimer( m_ioService ),
 		m_isSending( false ), m_isSuspendSend( false ), m_isSuspendDispatch( false ),
@@ -23,7 +19,7 @@ namespace XGAME
 	{
 		close();
 	}
-	
+
 	const TcpSocketPtr XAsioTCPSession::getSocket() const { return m_socket; }
 
 	bool XAsioTCPSession::isOpen() { return m_socket && m_socket->is_open(); }
@@ -47,7 +43,6 @@ namespace XGAME
 			}
 			m_buffers[type].clear();
 		}
-		return;
 	}
 
 	void XAsioTCPSession::read()
@@ -77,7 +72,7 @@ namespace XGAME
 		newBuffer.detach();
 		m_buffers[SESSION_SEND_BUFFER].push_back( newBuffer );
 		lock.unlock();
-		
+
 		doSend();
 	}
 
@@ -149,7 +144,7 @@ namespace XGAME
 		}
 		return !m_buffers[SESSION_SEND_BUFFER].empty();
 	}
-	
+
 	bool XAsioTCPSession::doRead()
 	{
 		mutex::scoped_lock lock( m_mutexs[SESSION_RECV_BUFFER] );
@@ -220,213 +215,5 @@ namespace XGAME
 			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
 		}
 		ON_CALLBACK_PARAM( m_funcCloseHandler, getSessionId() );
-	}
-
-	//---------------
-	//TCP客户端控制
-
-	TcpClientPtr XAsioTCPClient::create( XAsioService& io )
-	{
-		return TcpClientPtr( new XAsioTCPClient( io ) )->shared_from_this();
-	}
-
-	XAsioTCPClient::XAsioTCPClient( XAsioService& io )
-		: XAsioClientInterface( io ), m_funcConnectHandler( nullptr ), m_ptrResolver( nullptr )
-	{
-	}
-
-	XAsioTCPClient::~XAsioTCPClient()
-	{
-		m_funcConnectHandler	= nullptr;
-		m_funcReconnectHandler	= nullptr;
-	}
-
-	void XAsioTCPClient::setConnectHandler( std::function<void( TcpSessionPtr )> handler )
-	{
-		m_funcConnectHandler = handler;
-	}
-	void XAsioTCPClient::setReconnectHandler( std::function<void()> handler )
-	{
-		m_funcReconnectHandler = handler;
-	}
-
-	void XAsioTCPClient::init()
-	{
-	}
-
-	void XAsioTCPClient::release()
-	{
-	}
-
-	void XAsioTCPClient::connect( const std::string& host, uint16_t port )
-	{
-		connect( host, boost::lexical_cast<std::string>( port ) );
-	}
-	void XAsioTCPClient::connect( const std::string& host, const std::string& protocol )
-	{
-		tcp::resolver::query query( host, protocol );
-		if ( m_ptrResolver == nullptr )
-		{
-			m_ptrResolver = TcpResolverPtr( new tcp::resolver( m_strand.get_io_service() ) );
-		}
-		m_ptrResolver->async_resolve( query, 
-			m_strand.wrap( boost::bind( &XAsioTCPClient::onResolveCallback, shared_from_this(), 
-			boost::asio::placeholders::error, boost::asio::placeholders::iterator ) ) );
-	}
-
-	TcpSessionPtr XAsioTCPClient::createTCPSession()
-	{
-		return TcpSessionPtr( new XAsioTCPSession( m_service ) );
-	}
-
-	void XAsioTCPClient::onResolveCallback( const boost::system::error_code& err, boost::asio::ip::tcp::resolver::iterator it )
-	{
-		if ( err )
-		{
-			try
-			{
-				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
-			}
-			catch(...)
-			{
-			}
-		}
-		else
-		{
-			ON_CALLBACK( m_funcResolveHandler );
-			if ( m_ptrSession == nullptr )
-			{
-				m_ptrSession = createTCPSession();
-			}
-			boost::asio::async_connect( *m_ptrSession->getSocket(), it, 
-				m_strand.wrap( boost::bind( &XAsioTCPClient::onConnectCallback, 
-				shared_from_this(), m_ptrSession, boost::asio::placeholders::error ) ) );
-		}
-	}
-
-	void XAsioTCPClient::onConnectCallback( TcpSessionPtr session, const boost::system::error_code& err )
-	{
-		if ( err )
-		{
-			if ( error::operation_aborted != err && getService().isRunning() )
-			{
-				if ( m_ptrSession )
-				{
-					m_ptrSession->close();
-				}		
-				ON_CALLBACK( m_funcReconnectHandler );
-			}
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
-			ON_CALLBACK_PARAM( m_funcConnectHandler, nullptr );
-		}
-		else 
-		{
-			ON_CALLBACK_PARAM( m_funcConnectHandler, session );
-		}
-	}
-	
-	//--------------------------------
-	//TCP服务器控制
-	TcpServerPtr XAsioTCPServer::create( XAsioService& io )
-	{
-		return TcpServerPtr( new XAsioTCPServer( io ) )->shared_from_this();
-	}
-	
-	XAsioTCPServer::XAsioTCPServer( XAsioService& io )
-		: XAsioServerInterface( io ), m_funcAcceptHandler( nullptr ), m_funcCancelHandler( nullptr ),
-		m_acceptor( nullptr )
-	{
-	}
-
-	XAsioTCPServer::~XAsioTCPServer()
-	{
-		stopAccept();
-	}
-
-	const TcpAcceptorPtr XAsioTCPServer::getAcceptor() const
-	{
-		return m_acceptor;
-	}
-
-	void XAsioTCPServer::init()
-	{
-	}
-	
-	void XAsioTCPServer::setAcceptHandler( std::function<void( TcpSessionPtr )> handler )
-	{
-		m_funcAcceptHandler = handler;
-	}
-	void XAsioTCPServer::setCancelHandler( std::function<void()> handler )
-	{
-		m_funcCancelHandler = handler;
-	}
-
-	void XAsioTCPServer::release()
-	{
-	}
-	
-	TcpSessionPtr XAsioTCPServer::createTCPSession()
-	{
-		return TcpSessionPtr( new XAsioTCPSession( m_service ) );
-	}
-
-	void XAsioTCPServer::startAccept( int threadNum, uint16_t port )
-	{
-		if ( m_acceptor == nullptr )
-		{
-			m_acceptor = TcpAcceptorPtr( new tcp::acceptor( m_ioService, tcp::endpoint( tcp::v4(), port) ) );
-		}
-		for ( int i = 0; i < threadNum; i++ )
-		{
-			startAccept();
-		}
-	}
-
-	void XAsioTCPServer::startAccept()
-	{
-		TcpSessionPtr session = createTCPSession();
-		m_acceptor->async_accept( *session->getSocket(), 
-			m_strand.wrap( boost::bind( &XAsioTCPServer::onAcceptCallback, shared_from_this(), 
-			session, boost::asio::placeholders::error ) ));
-	}
-
-	void XAsioTCPServer::stopAccept()
-	{
-		if ( m_acceptor )
-		{
-			boost::system::error_code err;			
-			m_acceptor->cancel( err );
-			m_acceptor->close( err );
-			if ( err )
-			{
-				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
-			}
-			else
-			{
-				ON_CALLBACK( m_funcCancelHandler );
-			}
-		}
-	}
-
-	void XAsioTCPServer::onAcceptCallback( TcpSessionPtr session, const boost::system::error_code& err )
-	{
-		if ( err )
-		{
-			try
-			{
-				if ( m_acceptor->is_open() )
-				{
-					ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
-				}				
-			}
-			catch(...)
-			{
-			}
-		}
-		else
-		{
-			ON_CALLBACK_PARAM( m_funcAcceptHandler, session );
-			startAccept();
-		}
 	}
 }

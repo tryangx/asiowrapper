@@ -33,7 +33,8 @@ namespace XGAME
 		/**
 		 * 获取服务接口
 		 */
-		TcpClientPtr	getService();
+		TcpClientPtr	getServicePtr();
+		XAsioTCPClient*	getService();
 		
 		/**
 		 * 得到ID
@@ -71,6 +72,7 @@ namespace XGAME
 
 		/**
 		 * 设置连接到服务器时的处理
+		 * @param handler	连接成功或失败时的回调处理，参数为空即失败，失败原因可能为超时等
 		 */
 		void			setConnectHandler( std::function<void( XClient* )> handler );
 

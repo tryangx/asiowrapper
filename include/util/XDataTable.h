@@ -41,9 +41,9 @@ namespace XGAME
 		TYPE*	getNext();
 
 	protected:
-		typedef std::map<int, TYPE>		MAPITEM;
-		MAPITEM							m_mapItems;
-		typename MAPITEM::iterator		m_mapItemIter;
+		typedef std::map<int, TYPE>		MAP_ITEM;
+		MAP_ITEM						m_mapItems;
+		typename MAP_ITEM::iterator		m_mapItemIter;
 		enTableDataFileType				m_enFileType;
 	};
 

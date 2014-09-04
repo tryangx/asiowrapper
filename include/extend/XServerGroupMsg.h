@@ -21,14 +21,23 @@ namespace XGAME
 		EN_CMD_BEGIN		= 10000,
 		
 		//msg << int id
-		EN_W2D_LOGIN_REQ,
+		EN_CMD_W2D_LOGIN_REQ,
 		//msg >> uint id >> string >> short lv
-		EN_D2W_LOGIN_RES,
+		EN_CMD_D2W_LOGIN_RES,
 
-		EN_W2D_LOGOUT_REQ,
-		EN_D2W_LOGOUT_RES,
+		EN_CMD_W2D_LOGOUT_REQ,
+		EN_CMD_D2W_LOGOUT_RES,
 
 		//msg << string
-		EN_S2S_LOG_NFY,
+		EN_CMD_S2S_LOG_NFY,
+	};
+
+	enum enServerRegTestType
+	{
+		//注册应用服务器
+		//msg << int type << int id
+		//type 类型
+		//id 编号
+		EN_REG_APPSERVER,
 	};
 }
