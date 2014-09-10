@@ -87,7 +87,7 @@ namespace XGAME
 				if ( m_ptrSession )
 				{
 					m_ptrSession->close();	
-				}		
+				}
 				ON_CALLBACK( m_funcReconnectHandler );
 			}
 			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );

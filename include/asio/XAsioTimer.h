@@ -1,12 +1,12 @@
 #pragma once
 
-#include <boost/container/set.hpp>
-
+#include "XApi.h"
 #include "XAsioBase.h"
+#include <boost/container/set.hpp>
 
 namespace XGAME
 {
-	class XAsioTimer
+	class XGAME_API XAsioTimer
 	{
 	protected:
 

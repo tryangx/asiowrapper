@@ -5,7 +5,7 @@
 
 namespace XGAME
 {
-#define CONNECT_TIMEOUT_SECOND		10
+#define DEFAULT_CONNECT_TIMEOUT_MS		10000
 	
 	std::function<void( const char* )>	XClient::m_sfuncLogHandler = nullptr;
 
@@ -75,12 +75,12 @@ namespace XGAME
 		m_iPort = port;
 	}
 
-	void XClient::connect()
+	bool XClient::connect()
 	{
 		if ( m_bIsConnected )
 		{
 			onLog( "Client is already connected!" );
-			return;
+			return false;
 		}
 		m_bInit = true;
 		m_ptrTCPClient.reset();
@@ -91,9 +91,11 @@ namespace XGAME
 		m_ptrTCPClient->connect( m_sHost, m_iPort );
 		setClientId( m_iClientId );
 		
+		m_connectTimer.expires_from_now( posix_time::millisec( DEFAULT_CONNECT_TIMEOUT_MS ) );
 		m_connectTimer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
 
 		m_bReadHeader = false;
+		return true;
 	}
 
 	void XClient::release()
@@ -122,6 +124,7 @@ namespace XGAME
 	{
 		if ( !m_bIsConnected )
 		{
+			onLog( "Cann't send packet without connect to sever" );
 			return;
 		}
 		if ( m_ptrSession && m_ptrSession->isOpen() )

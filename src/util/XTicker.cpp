@@ -4,6 +4,7 @@
 
 namespace XGAME
 {
+	long long XTicker::m_lastTickCounter = 0;
 	LONGLONG XTicker::getTickCounter()
 	{
 		LARGE_INTEGER freq;
@@ -11,8 +12,14 @@ namespace XGAME
 
 		LARGE_INTEGER tmp;
 		QueryPerformanceCounter( &tmp );
-		LONGLONG tick = (long long)( tmp.QuadPart * 1000000.0 / freq.QuadPart );  
+		LONGLONG tick = (long long)( tmp.QuadPart * 1000000.0 / freq.QuadPart );
+		m_lastTickCounter = tick;
 		return tick;
+	}
+
+	LONGLONG XTicker::getLastTickCounter()
+	{
+		return m_lastTickCounter;
 	}
 
 	XTicker::XTicker()  
@@ -44,11 +51,19 @@ namespace XGAME
 
 namespace XGAME
 {
+	XTicker::m_lastTickCounter = 0;
+
 	long long XTicker::getTickCounter()
 	{
 		timeval t;
 		gettimeofday( &t, NULL );
 		long long tick = t.tv_sec * 1000000ll + t.tv_usec;
+		m_lastTickCounter = tick;
+		return tick;
+	}
+	long long XTicker::getTickCounter()
+	{
+		return m_lastTickCounter;
 	}
 
 	XTicker::XTicker()  

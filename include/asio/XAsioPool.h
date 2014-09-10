@@ -15,7 +15,7 @@ namespace XGAME
 	*		isStarted() // «∑Ò‘À––
 	*/
 	template<typename OBJECT>
-	class XAsioPool : public XAsioTimer
+	class XGAME_API XAsioPool : public XAsioTimer
 	{
 	public:
 		typedef boost::shared_ptr<OBJECT>				OBJECT_TYPE;

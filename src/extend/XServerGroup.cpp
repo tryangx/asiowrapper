@@ -40,7 +40,6 @@ namespace XGAME
 		_serverType = EN_APPSERVER_GATE;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_WORLD, EN_APPSERVER_WORLD ) );
 	}
 	void stAppServerConfig::testWorldConfig()
 	{
@@ -48,8 +47,8 @@ namespace XGAME
 		_serverType = EN_APPSERVER_WORLD;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_DB, EN_APPSERVER_DB ) );
-		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_LOG, EN_APPSERVER_LOG ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_DB + 100, EN_APPSERVER_DB ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_LOG + 100, EN_APPSERVER_LOG ) );
 	}
 	void stAppServerConfig::testDBConfig()
 	{
@@ -57,7 +56,6 @@ namespace XGAME
 		_serverType = EN_APPSERVER_DB;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		//addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_WORLD, EN_APPSERVER_WORLD ) );
 	}
 	void stAppServerConfig::testLogConfig()
 	{
@@ -65,7 +63,6 @@ namespace XGAME
 		_serverType = EN_APPSERVER_LOG;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		//addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_CENTER, EN_APPSERVER_CENTER ) );
 	}
 
 	void stAppServerConfig::testCenterConfig()
@@ -120,6 +117,10 @@ namespace XGAME
 	{
 		XClient::onRecv( buff );
 	}
+	void XAppConnector::onReconnectCallback()
+	{
+		connect( m_serverEndpoint );
+	}
 
 	bool XAppConnector::connect( stAppServerEndPoint& ep )
 	{
@@ -127,9 +128,16 @@ namespace XGAME
 		{
 			return false;
 		}
-		setAddress( ep._ip, ep._port );
-		XClient::connect();
-		m_ioService.startService( getService(), 1 );
+		m_serverEndpoint = ep;
+		setAddress( m_serverEndpoint._ip, m_serverEndpoint._port );
+		if ( XClient::connect() )
+		{
+			if ( m_ptrTCPClient )
+			{
+				m_ptrTCPClient->setReconnectHandler( std::bind( &XAppConnector::onReconnectCallback, this ) );
+			}
+			m_ioService.startService( getService(), 1 );
+		}
 		return true;
 	}
 

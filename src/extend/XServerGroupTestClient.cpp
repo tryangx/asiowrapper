@@ -144,7 +144,14 @@ namespace XGAME
 
 	void XTestClientPool::onClientConnect( XClient* p )
 	{
-		onLog( outputString( "%d connect %s:%d", p->getClientId(), p->getIp(), p->getPort() ) );
+		if ( p )
+		{
+			onLog( outputString( "%d connect %s:%d", p->getClientId(), p->getIp(), p->getPort() ) );
+		}
+		else
+		{
+			onLog( "connect failed" );
+		}
 	}
 
 	void XTestClientPool::onClientClose( unsigned int id )

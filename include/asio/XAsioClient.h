@@ -54,7 +54,7 @@ namespace XGAME
 		/**
 		 * 连接
 		 */
-		void			connect();
+		bool			connect();
 		/**
 		 * 断开连接
 		 */

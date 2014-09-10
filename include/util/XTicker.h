@@ -14,7 +14,14 @@ namespace XGAME
 	class XGAME_API XTicker
 	{
 	public:
-		static LONGLONG	getTickCounter();
+		/**
+		 * 得到运行时间(微秒)
+		 */
+		static LONGLONG		getTickCounter();
+		static LONGLONG		getLastTickCounter();
+
+	private:
+		static long long	m_lastTickCounter;
 
 	public:
 		XTicker();
@@ -45,7 +52,14 @@ namespace XGAME
 	class XTicker
 	{
 	public:
-		static long long getTickCounter();
+		/**
+		 * 得到运行时间(微秒)
+		 */
+		static long long	getTickCounter();
+		static long long	getLastTickCounter();
+
+	private:
+		static long long	m_lastTickCounter;
 
 	public:  
 		XTicker();
@@ -56,7 +70,7 @@ namespace XGAME
 
 		void reset();
 
-	public:  
+	protected:  
 		long long	m_costTime;
 
 	private:  

@@ -1,12 +1,25 @@
 #include "asio/XAsioServer.h"
 #include "asio/XAsioBase.h"
 #include "util/XStringUtil.h"
+#include "util/XTicker.h"
 
 namespace XGAME
 {
-#define MAX_SERVICE_THREAD_NUM		4
+/**
+ * 服务的线程数量
+ */
+#define DEFAULT_SERVICE_THREAD_NUM			4
 
-#define MAX_ACCEPT_THREAD_NUM		1
+/**
+ * 侦听线程的数量
+ */
+#define DEFAULT_ACCEPT_THREAD_NUM			1
+
+/**
+ * 会话超时的时间（600秒）
+ */
+#define DEFAULT_SESSION_TIMEROUT_MICROS		10000000
+	//600000000
 
 	//---------------------------
 	// 服务会话
@@ -56,6 +69,8 @@ namespace XGAME
 		m_ptrSession->setReadHandler( std::bind( &XServerSession::onRecv, this, std::placeholders::_1 ) );
 
 		recv();
+
+		m_lastTickerTime = XTicker::getTickCounter();
 	}
 
 	void XServerSession::release()
@@ -72,6 +87,11 @@ namespace XGAME
 		{
 			m_ptrSession->write( buff );
 		}
+	}
+
+	bool XServerSession::isTimeout()
+	{
+		return XTicker::getLastTickCounter() - m_lastTickerTime > DEFAULT_SESSION_TIMEROUT_MICROS;
 	}
 
 	void XServerSession::close()
@@ -100,6 +120,7 @@ namespace XGAME
 
 	void XServerSession::onRecv( XAsioBuffer& buff )
 	{
+		m_lastTickerTime = XTicker::getTickCounter();
 		XAsioStatServerAgent::getMutableInstance()->recv( buff.getDataSize() );
 		m_recvPacket.import( buff );
 		if ( m_recvPacket.isReady() )
@@ -144,8 +165,8 @@ namespace XGAME
 	XServer::XServer( XAsioService& service ) 
 		: m_service( service ), //XAsioPool( service.getIOService() ),
 		m_iAllocateId( CLIENT_START_ID ), m_bIsStarted( false ), m_iPort( 6580 ),
-		m_iAcceptThreadNum( MAX_ACCEPT_THREAD_NUM ),
-		m_funcLogHandler( nullptr ), m_ptrTCPServer( nullptr )
+		m_iAcceptThreadNum( DEFAULT_ACCEPT_THREAD_NUM ),
+		m_funcLogHandler( nullptr ), m_ptrTCPServer( nullptr ), m_timerUpdateTimer( service.getIOService() )
 	{
 		//allocateObject( 1 );
 	}
@@ -217,6 +238,9 @@ namespace XGAME
 		m_ptrTCPServer->setLogHandler( std::bind( &XServer::onLog, this, std::placeholders::_1 ) );		
 		m_ptrTCPServer->startAccept( m_iAcceptThreadNum, m_iPort );
 		
+		m_timerUpdateTimer.expires_from_now( posix_time::millisec( 5000 ) );
+		m_timerUpdateTimer.async_wait( boost::bind( &XServer::onTimerUpdateCallback, this, boost::asio::placeholders::error ) );
+
 		onLog( "start server" );
 	}
 
@@ -231,6 +255,8 @@ namespace XGAME
 		m_bIsStarted = false;
 		m_ptrTCPServer->release();
 		m_ptrTCPServer->stopAccept();
+		
+		m_timerUpdateTimer.cancel();
 		
 		MAPSERVERSESSIONPTR::iterator it = std::begin( m_mapSession );
 		for ( ; it != std::end( m_mapSession ); it++ )
@@ -272,6 +298,26 @@ namespace XGAME
 			{
 				ptr->send( buff );
 			}
+		}
+	}
+
+	void XServer::updateClient()
+	{
+		mutex::scoped_lock lock( m_sessionMutex );
+		XTicker::getTickCounter();
+		MAPSERVERSESSIONPTR::iterator it = std::begin( m_mapSession );
+		for ( ; it != std::end( m_mapSession ); )
+		{
+			XServerSession* ptr = it->second.get();
+			if ( ptr->isTimeout() )
+			{
+				onLog( outputString( "Client [%d] timeout", ptr->getSessionId() ) );
+				ptr->release();
+				ptr->close();
+				it = m_mapSession.erase( it );
+				continue;
+			}
+			it++;		
 		}
 	}
 
@@ -354,5 +400,15 @@ namespace XGAME
 	void XServer::onLog( const char* pLog )
 	{
 		ON_CALLBACK_PARAM( m_funcLogHandler, pLog );
+	}
+
+	void XServer::onTimerUpdateCallback( const boost::system::error_code& err )
+	{
+		if ( err == nullptr && m_bIsStarted )
+		{
+			updateClient();
+			m_timerUpdateTimer.expires_from_now( posix_time::millisec( 5000 ) );
+			m_timerUpdateTimer.async_wait( boost::bind( &XServer::onTimerUpdateCallback, this, boost::asio::placeholders::error ) );
+		}
 	}
 }

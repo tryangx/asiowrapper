@@ -39,7 +39,7 @@ namespace XGAME
 	/**
 	 * 服务器端点
 	 */
-	struct stAppServerEndPoint
+	struct XGAME_API stAppServerEndPoint
 	{
 		stAppServerEndPoint();
 		stAppServerEndPoint( const char* ip, short port, enAppServerType type );
@@ -52,7 +52,7 @@ namespace XGAME
 	/**
 	 * 应用服务器配置
 	 */
-	struct stAppServerConfig
+	struct XGAME_API stAppServerConfig
 	{
 		//需要连接的服务器
 		std::tr1::unordered_map<int,stAppServerEndPoint>	_mapSrvEndPoint;
@@ -89,7 +89,7 @@ namespace XGAME
 	/**
 	 * 用于S2S间的连接
 	 */
-	class XAppConnector : public XClient
+	class XGAME_API XAppConnector : public XClient
 	{
 	public:
 		XAppConnector( XAsioService& service );
@@ -127,13 +127,19 @@ namespace XGAME
 		 * 接收到的处理
 		 */
 		virtual void	onRecv( XAsioBuffer& buff );
+		/**
+		 * 重连的回调处理
+		 */
+		virtual void	onReconnectCallback();
 
 	private:
-		XAsioService&	m_ioService;
+		XAsioService&			m_ioService;
 		
-		enAppServerType	m_serverType;
+		enAppServerType			m_serverType;
 
-		unsigned int	m_iConnectId;
+		unsigned int			m_iConnectId;
+
+		stAppServerEndPoint		m_serverEndpoint;
 	};
 
 	typedef boost::shared_ptr<class XAppConnector>		XAppConnectorPtr;
@@ -141,7 +147,7 @@ namespace XGAME
 	/**
 	 * 应用服务器
 	 */
-	class XAppServer
+	class XGAME_API XAppServer
 	{
 	public:
 		XAppServer();
@@ -260,7 +266,7 @@ namespace XGAME
 		static std::string	m_sAppServerName[EN_APPSERVER_COUNT];
 	};
 
-	class XGateServer : public XAppServer
+	class XGAME_API XGateServer : public XAppServer
 	{
 	public:
 		XGateServer();
@@ -269,7 +275,7 @@ namespace XGAME
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
 	};
 
-	class XDBServer : public XAppServer
+	class XGAME_API XDBServer : public XAppServer
 	{
 	public:
 		XDBServer();
@@ -278,7 +284,7 @@ namespace XGAME
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
 	};
 
-	class XCenterServer : public XAppServer
+	class XGAME_API XCenterServer : public XAppServer
 	{
 	public:
 		XCenterServer();
@@ -287,7 +293,7 @@ namespace XGAME
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
 	};
 
-	class XWorldServer : public XAppServer
+	class XGAME_API XWorldServer : public XAppServer
 	{
 	public:
 		XWorldServer();
@@ -296,7 +302,7 @@ namespace XGAME
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
 	};
 
-	class XLogServer : public XAppServer
+	class XGAME_API XLogServer : public XAppServer
 	{
 	public:
 		XLogServer();
@@ -306,7 +312,7 @@ namespace XGAME
 	};
 
 	class XTestClientPool;
-	class XTestClient : public XClient
+	class XGAME_API XTestClient : public XClient
 	{
 	public:
 		XTestClient( XAsioService& io );
@@ -317,7 +323,7 @@ namespace XGAME
 	/**
 	 * 客户端连接池，用于压力测试
 	 */
-	class XTestClientPool
+	class XGAME_API XTestClientPool
 	{
 	public:
 		XTestClientPool();

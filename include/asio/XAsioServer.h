@@ -71,7 +71,13 @@ namespace XGAME
 		 * 断开
 		 */
 		void			close();
+		
+		/**
+		 * 是否超时
+		 */
+		bool			isTimeout();
 
+		//---------回调处理相关
 		/**
 		 * 日志的处理
 		 */
@@ -100,12 +106,14 @@ namespace XGAME
 		* 读取消息相关
 		*/
 		bool				m_bIsStarted;
-		XAsioRecvPacket		m_recvPacket;
+		XAsioRecvPacket		m_recvPacket;		
+		long long			m_lastTickerTime;
 
 		std::function<void( XServerSession*, XAsioRecvPacket& )>	m_funcRecvHandler;
 		std::function<void( const char* )>		m_funcLogHandler;
 	};
 
+	//---------------------
 	//  服务器
 	class XServer // : public XAsioPool<XServerSession>
 	{
@@ -165,10 +173,18 @@ namespace XGAME
 		 */
 		void		sendToIdList( XAsioBuffer& buff, std::vector<unsigned int>& v );
 
+		//--------客户端处理
+
 		/**
 		 * 获取客户端数量
 		 */
 		size_t		getClientCount();
+
+		/**
+		 * 刷新客户端
+		 * 用于处理超时等情况
+		 */
+		void		updateClient();
 
 		//--------接收消息处理------------
 
@@ -195,6 +211,7 @@ namespace XGAME
 		void			onSessionClose( size_t id );		
 		void			onSessionRecv( XServerSession* pSession, XAsioRecvPacket& packet );
 		void			onLog( const char* pLog );
+		void			onTimerUpdateCallback( const boost::system::error_code& err );
 
 	protected:
 		/**
@@ -214,6 +231,9 @@ namespace XGAME
 		MAPSERVERSESSIONPTR				m_mapSession;
 		unsigned int					m_iAllocateId;
 		boost::mutex					m_sessionMutex;
+
+		//超时计时器
+		deadline_timer					m_timerUpdateTimer;
 
 		//侦听线程数量
 		int								m_iAcceptThreadNum;
