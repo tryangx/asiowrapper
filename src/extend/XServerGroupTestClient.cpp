@@ -15,6 +15,8 @@ namespace XGAME
 
 	XTestClientPool::~XTestClientPool()
 	{
+		m_funcLogHandler = nullptr;
+
 		clear();
 		m_mapClient.clear();
 		m_mapTempClient.clear();
@@ -54,6 +56,18 @@ namespace XGAME
 			XTestClientPtr& ptr = it->second;
 			ptr->send( buffer );
 		}
+	}
+
+	int XTestClientPool::getClientCount()
+	{
+		mutex::scoped_lock lock( m_mutexMap );
+		return m_mapClient.size();
+	}
+
+	int	XTestClientPool::getTempClientCount()
+	{
+		mutex::scoped_lock lock( m_mutexMap );
+		return m_mapTempClient.size();
 	}
 
 	unsigned int XTestClientPool::createClient()
@@ -100,10 +114,11 @@ namespace XGAME
 			}
 			else
 			{
-				int inx = 0;
+				int inx;
 				int needClose = id == -1 ? m_mapClient.size() : rand() % 3 + 1;
 				for ( int left = 0; left < needClose && !m_mapClient.empty(); left++ )
 				{
+					inx = 0;
 					int targetIndex = rand() % m_mapClient.size();					
 					MAP_CLINTPTR::iterator it = m_mapClient.begin();
 					for ( ; it != m_mapClient.end(); it++, inx++ )

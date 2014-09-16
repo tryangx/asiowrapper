@@ -146,7 +146,6 @@ namespace XGAME
 		~XAsioTCPClient();
 		
 		virtual void	init();
-
 		virtual void	release();
 		
 		/**
@@ -155,7 +154,6 @@ namespace XGAME
 		virtual void	connect( const std::string& host, uint16_t port );
 		virtual void	connect( const std::string& host, const std::string& protocol );
 		
-	public:
 		void			setConnectHandler( std::function<void( TcpSessionPtr )> );
 		void			setReconnectHandler( std::function<void()> );
 		
@@ -217,13 +215,11 @@ namespace XGAME
 	public:
 		/**
 		 * 侦听的响应处理函数
-		 * 函数原型为void handler( XAsioTCPSession session ) 
 		 */
 		void			setAcceptHandler( std::function<void( TcpSessionPtr )> handler );
 
 		/**
 		 * 停止侦听的响应处理函数
-		 * 函数原型为void handler( XAsioTCPSession session ) 
 		 */
 		void			setCancelHandler( std::function<void()> handler );
 		

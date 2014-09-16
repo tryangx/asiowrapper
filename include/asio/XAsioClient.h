@@ -14,19 +14,6 @@ namespace XGAME
 	class XGAME_API XClient
 	{
 	public:
-		/**
-		 * 静态日志控制接口
-		 */
-		static void		setLog( std::function<void( const char* )> handler );
-		static void		disableLog();
-		
-	protected:
-		static void		onLogHandler( const char* pLog );
-				
-	protected:
-		static std::function<void( const char* )>	m_sfuncLogHandler;
-
-	public:
 		XClient( XAsioService& io );
 		~XClient();
 
@@ -87,6 +74,11 @@ namespace XGAME
 		 */
 		void			setRecvHandler( std::function<void( XClient*, XAsioRecvPacket& )> handler );
 
+		/**
+		 * 设置接收到数据时的处理
+		 */
+		void			setLogHandler( std::function<void( const char* )> handler );
+
 	protected:
 		/**
 		 * 释放会话
@@ -106,7 +98,8 @@ namespace XGAME
 		void			onClose( size_t id );
 		void			onLog( const char* pLog );
 		
-		void			onConnTimeoutCallback( const boost::system::error_code& ec );
+		void			onConnTimeoutCallback( const boost::system::error_code& err );
+		void			onDisconnTimeCallback( const boost::system::error_code& err );
 
 	protected:
 		/**
@@ -140,9 +133,9 @@ namespace XGAME
 		bool				m_bIsConnected;
 
 		/**
-		 * 用于连接超时处理的计时器
+		 * 用于连接超时，连接中断处理的计时器
 		 */
-		deadline_timer		m_connectTimer;
+		deadline_timer		m_timer;
 
 		/**
 		 * 读取消息相关
@@ -154,5 +147,6 @@ namespace XGAME
 		std::function<void( size_t )>						m_funcCloseHandler;
 		std::function<void( XClient*, XAsioRecvPacket& )>	m_funcRecvHandler;
 		std::function<void( XClient* )>						m_funcConnectHandler;
+		std::function<void( const char* )>					m_funcLogHandler;
 	};
 }

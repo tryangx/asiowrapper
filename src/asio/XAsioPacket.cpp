@@ -308,7 +308,7 @@ namespace XGAME
 
 	XAsioSendPacket& XAsioSendPacket::operator << ( const std::string& str )
 	{
-		size_t size = str.length();
+		unsigned short size = str.length();
 		if ( getCurPos() + sizeof(unsigned short) + size > MAX_PACKET_SIZE )
 		{
 			throw std::runtime_error( "out of packet size" );

@@ -129,7 +129,10 @@ namespace XGAME
 	{
 	}
 
-	XAsioUDPServer::~XAsioUDPServer() { m_funcAcceptHandler = nullptr; }
+	XAsioUDPServer::~XAsioUDPServer()
+	{
+		m_funcAcceptHandler = nullptr;
+	}
 
 	void XAsioUDPServer::setAcceptHandler( const std::function<void( UdpSessionPtr )>& eventHandler )
 	{

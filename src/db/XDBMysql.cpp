@@ -13,6 +13,8 @@ namespace XGAME
 
 	XDBMysql::~XDBMysql()
 	{
+		m_funcLogHandler = nullptr;
+
 		MAP_PREPARESTATEMENT::iterator it;
 		for ( it = m_mapPrepareStatment.begin(); it != m_mapPrepareStatment.end(); it++ )
 		{

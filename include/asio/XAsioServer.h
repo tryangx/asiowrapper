@@ -15,32 +15,32 @@ namespace XGAME
 #define CLIENT_START_ID		10000
 
 	class XServer;
-	class XServerSession;
+	class XAsioTCPSrvSession;
 
-	typedef boost::shared_ptr<class XServerSession>		XServerSessionPtr;
+	typedef boost::shared_ptr<class XAsioTCPSrvSession>		TCPSrvSessionPtr;
 	
-	typedef XSingleton<XAsioStat>	XAsioStatServerAgent;
-
 	//---------------------------
 	//	连接到服务器的会话
-	class XGAME_API XServerSession : public boost::enable_shared_from_this<XServerSession>
+	class XGAME_API XAsioTCPSrvSession : public boost::enable_shared_from_this<XAsioTCPSrvSession>
 	{
 	public:
-		static XServerSessionPtr	create( TcpSessionPtr ptr );
+		static TCPSrvSessionPtr	create( TcpSessionPtr ptr );
 
 	protected:
 		static std::function<void( const char* )>			m_sfuncLogHandler;
 
 	public:
-		XServerSession();
-		XServerSession( TcpSessionPtr ptr );
-		~XServerSession();
+		XAsioTCPSrvSession();
+		XAsioTCPSrvSession( TcpSessionPtr ptr );
+		~XAsioTCPSrvSession();
 
 		/**
 		 * 初始化
 		 * @param ptr 指定会话的对象
 		 */
 		void			init( TcpSessionPtr ptr = nullptr );
+
+		void			setStat( XAsioStat* pStat );
 
 		/**
 		 * 得到会话ID
@@ -85,7 +85,7 @@ namespace XGAME
 		/**
 		 * 接收的处理
 		 */
-		void			setRecvHandler( std::function<void( XServerSession*, XAsioRecvPacket& )> handler );
+		void			setRecvHandler( std::function<void( XAsioTCPSrvSession*, XAsioRecvPacket& )> handler );
 		
 	protected:
 		void			recv();
@@ -109,13 +109,15 @@ namespace XGAME
 		XAsioRecvPacket		m_recvPacket;		
 		long long			m_lastTickerTime;
 
-		std::function<void( XServerSession*, XAsioRecvPacket& )>	m_funcRecvHandler;
+		std::function<void( XAsioTCPSrvSession*, XAsioRecvPacket& )>	m_funcRecvHandler;
 		std::function<void( const char* )>		m_funcLogHandler;
+
+		XAsioStat*			m_pStat;
 	};
 
 	//---------------------
 	//  服务器
-	class XServer // : public XAsioPool<XServerSession>
+	class XServer // : public XAsioPool<XAsioTCPSrvSession>
 	{
 	public:
 		XServer( XAsioService& service );
@@ -126,6 +128,8 @@ namespace XGAME
 		 */
 		TcpServerPtr		getService();
 
+		XAsioStat*			getStat();
+
 		/**
 		 * 是否启动
 		 */
@@ -134,7 +138,7 @@ namespace XGAME
 		/**
 		 * 获取会话
 		 */
-		XServerSession*		getSession( unsigned int id );
+		XAsioTCPSrvSession*		getSession( unsigned int id );
 		
 		/**
 		 * 关闭会话
@@ -195,13 +199,13 @@ namespace XGAME
 		
 	public:
 		void		setLogHandler( std::function<void( const char* )> handler );
-		void		setConnectHandler( std::function<void( XServerSession* )> handler );
+		void		setConnectHandler( std::function<void( XAsioTCPSrvSession* )> handler );
 		
 	protected:
 		/**
 		 * 创建会话
 		 */
-		virtual XServerSession*	createSession();
+		virtual XAsioTCPSrvSession*	createSession();
 
 		unsigned int	queryValidId();
 		
@@ -209,7 +213,7 @@ namespace XGAME
 		void			onAccept( TcpSessionPtr );
 		void			onCancel();
 		void			onSessionClose( size_t id );		
-		void			onSessionRecv( XServerSession* pSession, XAsioRecvPacket& packet );
+		void			onSessionRecv( XAsioTCPSrvSession* pSession, XAsioRecvPacket& packet );
 		void			onLog( const char* pLog );
 		void			onTimerUpdateCallback( const boost::system::error_code& err );
 
@@ -227,7 +231,7 @@ namespace XGAME
 		/**
 		 * 连到到服务器会话数据
 		 */
-		typedef std::tr1::unordered_map<size_t, XServerSessionPtr>	MAPSERVERSESSIONPTR;
+		typedef std::tr1::unordered_map<size_t, TCPSrvSessionPtr>	MAPSERVERSESSIONPTR;
 		MAPSERVERSESSIONPTR				m_mapSession;
 		unsigned int					m_iAllocateId;
 		boost::mutex					m_sessionMutex;
@@ -248,7 +252,9 @@ namespace XGAME
 		std::list<XAsioRecvPacket>		m_listRecvPackets;
 		boost::mutex					m_packetMutex;
 
+		XAsioStat						m_stat;
+
 		std::function<void( const char* )>			m_funcLogHandler;
-		std::function<void( XServerSession* )>		m_funcAcceptHandler;
+		std::function<void( XAsioTCPSrvSession* )>		m_funcAcceptHandler;
 	};
 }

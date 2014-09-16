@@ -18,62 +18,66 @@ namespace XGAME
 /**
  * 会话超时的时间（600秒）
  */
-#define DEFAULT_SESSION_TIMEROUT_MICROS		10000000
-	//600000000
+#define DEFAULT_SESSION_TIMEROUT_MICROS		600000000
 
 	//---------------------------
 	// 服务会话
-	XServerSessionPtr XServerSession::create( TcpSessionPtr ptr ) { return XServerSessionPtr( new XServerSession( ptr ) )->shared_from_this(); }
+	TCPSrvSessionPtr XAsioTCPSrvSession::create( TcpSessionPtr ptr ) { return TCPSrvSessionPtr( new XAsioTCPSrvSession( ptr ) )->shared_from_this(); }
 
-	XServerSession::XServerSession() : 
+	XAsioTCPSrvSession::XAsioTCPSrvSession() : 
 		m_ptrSession( nullptr ), m_bIsStarted( false ),
-		m_funcRecvHandler( nullptr ), m_funcLogHandler( nullptr )
+		m_funcRecvHandler( nullptr ), m_funcLogHandler( nullptr ), m_pStat( NULL )
 	{
 	}
 
-	XServerSession::XServerSession( TcpSessionPtr ptr ) : 
+	XAsioTCPSrvSession::XAsioTCPSrvSession( TcpSessionPtr ptr ) : 
 		m_ptrSession( ptr ), m_bIsStarted( false ),
-		m_funcRecvHandler( nullptr ), m_funcLogHandler( nullptr )
+		m_funcRecvHandler( nullptr ), m_funcLogHandler( nullptr ), m_pStat( NULL )
 	{
 	}
 
-	XServerSession::~XServerSession()
+	XAsioTCPSrvSession::~XAsioTCPSrvSession()
 	{
 		m_funcLogHandler	= nullptr;
 		m_funcRecvHandler	= nullptr;
 	}
 
-	bool XServerSession::isStarted()
+	bool XAsioTCPSrvSession::isStarted()
 	{
 		return m_bIsStarted;
 	}
 
-	bool XServerSession::isOpen()
+	bool XAsioTCPSrvSession::isOpen()
 	{
 		return m_ptrSession && m_ptrSession->isOpen();
 	}
 
-	unsigned int XServerSession::getSessionId()
+	unsigned int XAsioTCPSrvSession::getSessionId()
 	{
 		return m_ptrSession ? m_ptrSession->getSessionId() : 0;
 	}
 
-	void XServerSession::init( TcpSessionPtr ptr /* = nullptr */ )
+	void XAsioTCPSrvSession::setStat( XAsioStat* pStat )
+	{
+		m_pStat = pStat;
+	}
+
+	void XAsioTCPSrvSession::init( TcpSessionPtr ptr /* = nullptr */ )
 	{
 		if ( ptr )
 		{
 			m_ptrSession = ptr->shared_from_this();
 		}
-		m_ptrSession->setLogHandler( std::bind( &XServerSession::onLog, this, std::placeholders::_1 ) );
-		m_ptrSession->setWriteHandler( std::bind( &XServerSession::onWrite, this, std::placeholders::_1 ) );
-		m_ptrSession->setReadHandler( std::bind( &XServerSession::onRecv, this, std::placeholders::_1 ) );
+		m_ptrSession->setLogHandler( std::bind( &XAsioTCPSrvSession::onLog, this, std::placeholders::_1 ) );
+		m_ptrSession->setWriteHandler( std::bind( &XAsioTCPSrvSession::onWrite, this, std::placeholders::_1 ) );
+		m_ptrSession->setReadHandler( std::bind( &XAsioTCPSrvSession::onRecv, this, std::placeholders::_1 ) );
 
 		recv();
 
 		m_lastTickerTime = XTicker::getTickCounter();
 	}
 
-	void XServerSession::release()
+	void XAsioTCPSrvSession::release()
 	{
 		if ( m_ptrSession )
 		{
@@ -81,7 +85,7 @@ namespace XGAME
 		}
 	}
 
-	void XServerSession::send( XAsioBuffer& buff )
+	void XAsioTCPSrvSession::send( XAsioBuffer& buff )
 	{
 		if ( m_ptrSession && m_ptrSession->isOpen() )
 		{
@@ -89,12 +93,12 @@ namespace XGAME
 		}
 	}
 
-	bool XServerSession::isTimeout()
+	bool XAsioTCPSrvSession::isTimeout()
 	{
 		return XTicker::getLastTickCounter() - m_lastTickerTime > DEFAULT_SESSION_TIMEROUT_MICROS;
 	}
 
-	void XServerSession::close()
+	void XAsioTCPSrvSession::close()
 	{
 		if ( m_ptrSession )
 		{
@@ -102,7 +106,7 @@ namespace XGAME
 		}
 	}
 	
-	void XServerSession::recv()
+	void XAsioTCPSrvSession::recv()
 	{
 		if ( !isOpen() )
 		{
@@ -118,10 +122,13 @@ namespace XGAME
 		}
 	}
 
-	void XServerSession::onRecv( XAsioBuffer& buff )
+	void XAsioTCPSrvSession::onRecv( XAsioBuffer& buff )
 	{
 		m_lastTickerTime = XTicker::getTickCounter();
-		XAsioStatServerAgent::getMutableInstance()->recv( buff.getDataSize() );
+		if ( m_pStat )
+		{
+			m_pStat->recv( buff.getDataSize() );
+		}
 		m_recvPacket.import( buff );
 		if ( m_recvPacket.isReady() )
 		{
@@ -134,26 +141,29 @@ namespace XGAME
 		recv();
 	}
 
-	void XServerSession::onWrite( size_t bytesTransferred )
+	void XAsioTCPSrvSession::onWrite( size_t bytesTransferred )
 	{
-		XAsioStatServerAgent::getMutableInstance()->send( bytesTransferred );
+		if ( m_pStat )
+		{
+			m_pStat->send( bytesTransferred );
+		}
 	}
 
-	void XServerSession::onClose()
+	void XAsioTCPSrvSession::onClose()
 	{
 		m_ptrSession->close();
 	}
 
-	void XServerSession::setLogHandler( std::function<void( const char* )> handler )
+	void XAsioTCPSrvSession::setLogHandler( std::function<void( const char* )> handler )
 	{
 		m_funcLogHandler = handler;
 	}
-	void XServerSession::setRecvHandler( std::function<void( XServerSession*, XAsioRecvPacket& )> handler )
+	void XAsioTCPSrvSession::setRecvHandler( std::function<void( XAsioTCPSrvSession*, XAsioRecvPacket& )> handler )
 	{
 		m_funcRecvHandler = handler;
 	}
 
-	void XServerSession::onLog( const char* pLog )
+	void XAsioTCPSrvSession::onLog( const char* pLog )
 	{
 		std::string s = pLog;
 		ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", m_ptrSession ? m_ptrSession->getSessionId() : -1, s.c_str() ) );
@@ -173,11 +183,14 @@ namespace XGAME
 
 	XServer::~XServer()
 	{
-		m_funcLogHandler = nullptr;
+		m_funcLogHandler	=	nullptr;
+		m_funcAcceptHandler	=	nullptr;
 		stopServer();
 	}
 
 	TcpServerPtr XServer::getService() { return m_ptrTCPServer; }
+
+	XAsioStat* XServer::getStat() { return &m_stat; }
 
 	bool XServer::isStarted() { return m_bIsStarted; }
 
@@ -185,12 +198,12 @@ namespace XGAME
 	{
 		m_funcLogHandler = handler;
 	}
-	void XServer::setConnectHandler( std::function<void( XServerSession* )> handler )
+	void XServer::setConnectHandler( std::function<void( XAsioTCPSrvSession* )> handler )
 	{
 		m_funcAcceptHandler = handler;
 	}
 	
-	XServerSession* XServer::getSession( unsigned int id )
+	XAsioTCPSrvSession* XServer::getSession( unsigned int id )
 	{
 		mutex::scoped_lock lock( m_sessionMutex );
 		MAPSERVERSESSIONPTR::iterator it = m_mapSession.find( id );
@@ -203,7 +216,7 @@ namespace XGAME
 		MAPSERVERSESSIONPTR::iterator it = m_mapSession.find( id );
 		if ( it != std::end( m_mapSession ) )
 		{
-			XServerSessionPtr& ptr = it->second;
+			TCPSrvSessionPtr& ptr = it->second;
 			ptr->release();
 			ptr->close();
 			m_mapSession.erase( it );
@@ -261,7 +274,7 @@ namespace XGAME
 		MAPSERVERSESSIONPTR::iterator it = std::begin( m_mapSession );
 		for ( ; it != std::end( m_mapSession ); it++ )
 		{
-			XServerSessionPtr& ptr = it->second;
+			TCPSrvSessionPtr& ptr = it->second;
 			ptr->close();
 		}
 		
@@ -271,7 +284,7 @@ namespace XGAME
 	void XServer::sendTo( int id, XAsioBuffer& buff )
 	{
 		mutex::scoped_lock lock( m_sessionMutex );
-		XServerSession* ptr = getSession( id );
+		XAsioTCPSrvSession* ptr = getSession( id );
 		if ( ptr )
 		{
 			ptr->send( buff );
@@ -283,7 +296,7 @@ namespace XGAME
 		MAPSERVERSESSIONPTR::iterator it = std::begin( m_mapSession );
 		for ( ; it != std::end( m_mapSession ); it++ )
 		{
-			XServerSession* ptr = it->second.get();
+			XAsioTCPSrvSession* ptr = it->second.get();
 			ptr->send( buff );
 		}
 	}
@@ -293,7 +306,7 @@ namespace XGAME
 		int length = v.size();
 		for ( int inx = 0; inx < length; inx++ )
 		{
-			XServerSession* ptr = getSession( v[inx] );
+			XAsioTCPSrvSession* ptr = getSession( v[inx] );
 			if ( ptr )
 			{
 				ptr->send( buff );
@@ -308,7 +321,7 @@ namespace XGAME
 		MAPSERVERSESSIONPTR::iterator it = std::begin( m_mapSession );
 		for ( ; it != std::end( m_mapSession ); )
 		{
-			XServerSession* ptr = it->second.get();
+			XAsioTCPSrvSession* ptr = it->second.get();
 			if ( ptr->isTimeout() )
 			{
 				onLog( outputString( "Client [%d] timeout", ptr->getSessionId() ) );
@@ -341,10 +354,10 @@ namespace XGAME
 		return false;
 	}
 	
-	XServerSession* XServer::createSession()
+	XAsioTCPSrvSession* XServer::createSession()
 	{
 		//return queryObject();
-		return new XServerSession;
+		return new XAsioTCPSrvSession;
 	}
 	
 	void XServer::onAccept( TcpSessionPtr session )
@@ -354,13 +367,14 @@ namespace XGAME
 		session->setSessionId( queryValidId() );		
 		session->setCloseHandler( std::bind( &XServer::onSessionClose, this, std::placeholders::_1 ) );
 				
-		XServerSessionPtr ptr = XServerSessionPtr( createSession() );
+		TCPSrvSessionPtr ptr = TCPSrvSessionPtr( createSession() );
+		ptr->setStat( &m_stat );
 		ptr->init( session );
 		ptr->setLogHandler( std::bind( &XServer::onLog, this, std::placeholders::_1 ) );
 		ptr->setRecvHandler( std::bind( &XServer::onSessionRecv, this, std::placeholders::_1, std::placeholders::_2 ) );
 		m_mapSession.insert( std::make_pair( session->getSessionId(), ptr ) );
 
-		XAsioStatServerAgent::getMutableInstance()->connect();
+		m_stat.connect();
 
 		ON_CALLBACK_PARAM( m_funcAcceptHandler, ptr.get() );
 		//onLog( outputString( "accept [ connect:%d pool:%d temp:%d ]", m_mapSession.size(), getSize(), getClosedSize() ) );
@@ -377,24 +391,24 @@ namespace XGAME
 		MAPSERVERSESSIONPTR::iterator it = m_mapSession.find( id );
 		if ( it != std::end( m_mapSession ) )
 		{
-			XServerSessionPtr& ptr = it->second;
+			TCPSrvSessionPtr& ptr = it->second;
 			ptr->release();
 			ptr->close();
 			//releaseObject( it->second );
 			m_mapSession.erase( it );
 		}
-		XAsioStatServerAgent::getMutableInstance()->disconnect();
+		m_stat.disconnect();
 		//onLog( outputString( "session %d close [ pool:%d temp:%d ]", id, getSize(), getClosedSize() ) );
 	}
 
-	void XServer::onSessionRecv( XServerSession* pSession, XAsioRecvPacket& packet )
+	void XServer::onSessionRecv( XAsioTCPSrvSession* pSession, XAsioRecvPacket& packet )
 	{
 		mutex::scoped_lock lock( m_packetMutex );
 		packet.detach();
 		packet.setFromId( pSession->getSessionId() );
 		m_listRecvPackets.push_back( packet );
 		lock.unlock();
-		ON_CALLBACK_PARAM( m_funcLogHandler, "recv packet" );
+		ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "recv packet from %d", pSession->getSessionId() ) );
 	}
 
 	void XServer::onLog( const char* pLog )

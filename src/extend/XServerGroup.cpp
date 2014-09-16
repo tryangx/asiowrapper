@@ -47,8 +47,9 @@ namespace XGAME
 		_serverType = EN_APPSERVER_WORLD;
 		_listenPort = DEFAULT_PORT + _serverType;
 		_mapSrvEndPoint.clear();
-		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_DB + 100, EN_APPSERVER_DB ) );
-		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_LOG + 100, EN_APPSERVER_LOG ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_DB, EN_APPSERVER_DB ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_LOG, EN_APPSERVER_LOG ) );
+		addEndPoint( stAppServerEndPoint( "localhost", DEFAULT_PORT + EN_APPSERVER_GATE, EN_APPSERVER_GATE ) );
 	}
 	void stAppServerConfig::testDBConfig()
 	{
@@ -85,6 +86,10 @@ namespace XGAME
 
 	XAppConnector::~XAppConnector()
 	{
+		if ( m_ptrTCPClient )
+		{
+			m_ptrTCPClient->setReconnectHandler( nullptr );
+		}
 		if ( getService() )
 		{
 			m_ioService.removeService( getService() );
@@ -96,22 +101,23 @@ namespace XGAME
 		m_iConnectId = id;
 	}
 
-	void XAppConnector::setServerType( enAppServerType type )
+	void XAppConnector::setServerType( enAppServerType type, std::string name )
 	{
 		m_serverType = type;
+		m_serverName = name;
 	}
-
+	
 	void XAppConnector::onConnect( TcpSessionPtr session )
 	{
-		onLog( "connect to appserver" );
-
 		XClient::onConnect( session );
 		
 		//register
 		XAsioSendPacket packet( 0 );
 		packet.getHeader()->setOp( EN_POP_REGISTER );
-		packet << int( m_serverType ) << int( m_iConnectId );
+		packet << int( m_serverType ) << int( m_iConnectId ) << m_serverName;
 		send( packet );
+
+		onLog( outputString( "send register server=%d curid=%d", m_serverType, m_iConnectId ) );
 	}
 	void XAppConnector::onRecv( XAsioBuffer& buff )
 	{
@@ -119,6 +125,7 @@ namespace XGAME
 	}
 	void XAppConnector::onReconnectCallback()
 	{
+		onLog( "reconnect" );
 		connect( m_serverEndpoint );
 	}
 
@@ -167,6 +174,8 @@ namespace XGAME
 	}
 	XAppServer::~XAppServer()
 	{
+		m_funcLogHandler = nullptr;
+
 		m_procPacketThread.interrupt();
 		
 		stopServer();
@@ -175,6 +184,37 @@ namespace XGAME
 		{
 			m_ptrService->removeService( m_ptrServer->getService().get() );
 		}
+	}
+
+	int	XAppServer::getConnectorCnt()
+	{
+		int cnt = 0;
+		for ( int i = 0; i < EN_APPSERVER_COUNT; i++ )
+		{
+			if ( m_ptrConnectors[i] )
+			{
+				cnt++;
+			}
+		}
+		return cnt;
+	}
+
+	int	XAppServer::getAppServerCnt()
+	{
+		int cnt = 0;
+		for ( int i = 0; i < EN_APPSERVER_COUNT; i++ )
+		{
+			if ( m_mapAppSrvSession[i].size() )
+			{
+				cnt++;
+			}
+		}
+		return cnt;
+	}
+
+	XServer* XAppServer::getServer()
+	{
+		return m_ptrServer.get();
 	}
 
 	void XAppServer::setIoService( boost::shared_ptr<class XAsioService>& ioService )
@@ -234,7 +274,9 @@ namespace XGAME
 				m_ptrConnectors[ep._type] = XAppConnectorPtr( new XAppConnector( *m_ptrService.get() ) );
 				pConn = getConnector( ep._type );
 				pConn->setConnectorId( ep._type );
-				pConn->setServerType( m_serverConfig._serverType );
+				pConn->setServerType( m_serverConfig._serverType, m_serverConfig._sName );
+				pConn->setLogHandler( std::bind( &XAppServer::onLog, this, std::placeholders::_1 ) );
+				pConn->setRecvHandler( std::bind( &XAppServer::onConnectorRecv, this, std::placeholders::_1, std::placeholders::_2 ) );
 			}
 			if ( !pConn->isConnected() )
 			{
@@ -304,10 +346,10 @@ namespace XGAME
 		}
 		return nullptr;
 	}
-	XServerSession*	XAppServer::getAppServer( enAppServerType type )
+	XAsioTCPSrvSession*	XAppServer::getAppServer( enAppServerType type )
 	{
 		MAP_APPSERVER_SESSION& container = m_mapAppSrvSession[type];
-		XServerSession* pSession = container.empty() ? NULL : container.begin()->second;
+		XAsioTCPSrvSession* pSession = container.empty() ? NULL : container.begin()->second;
 		return pSession;
 	}
 	void XAppServer::sendToServer( enAppServerType type, XAsioBuffer& buffer )
@@ -315,13 +357,14 @@ namespace XGAME
 		XAppConnector* pConn = getConnector( type );
 		if ( pConn )
 		{
-			onLog( "send msg" );
+			onLog( "send connector msg" );
 			pConn->send( buffer );
 			return;
 		}
-		XServerSession* pSession = getAppServer( type );
+		XAsioTCPSrvSession* pSession = getAppServer( type );
 		if ( pSession )
 		{
+			onLog( outputString( "send session=%d msg", pSession->getSessionId() ) );
 			pSession->send( buffer );
 			return;
 		}
@@ -333,6 +376,10 @@ namespace XGAME
 		packet.output( buff );
 		sendToServer( type, buff );
 	}
+	void XAppServer::onConnectorRecv( XClient* pClient, XAsioRecvPacket& packet )
+	{
+		onProcessPacket( packet );
+	}
 	void XAppServer::onLog( const char* pLog )
 	{
 		if ( m_funcLogHandler != nullptr )
@@ -342,9 +389,9 @@ namespace XGAME
 			m_funcLogHandler( s.c_str() );
 		}
 	}
-	void XAppServer::onAccept( XServerSession* pSession )
+	void XAppServer::onAccept( XAsioTCPSrvSession* pSession )
 	{
-		onLog( outputString( "accept %d", m_serverConfig._listenPort ) );
+		onLog( outputString( "accept %d", pSession->getSessionId() ) );//m_serverConfig._listenPort ) );
 	}
 
 	void XAppServer::onProcessPacket( XAsioRecvPacket& recv )
@@ -354,12 +401,12 @@ namespace XGAME
 			unsigned char op = recv.getHeader()->getOp();
 			if ( op == EN_POP_CMD )
 			{
-				onLog( outputString( "recv cmd dest %d", recv.getHeader()->getDestID() ) );
+				onLog( outputString( "recv cmd dest=%d", recv.getHeader()->getDestID() ) );
 				onProcessCmdPacket( recv );
 			}
 			else if ( op == EN_POP_MSG )
 			{
-				onLog( outputString( "recv msg type %d", recv.getHeader()->getType() ) );
+				onLog( outputString( "recv msg type=%d", recv.getHeader()->getType() ) );
 				onProcessMsgPacket( recv );
 			}
 			else if ( op == EN_POP_HEARTBEAT )
@@ -422,13 +469,15 @@ namespace XGAME
 
 	void XAppServer::onProcessRegPacket( XAsioRecvPacket& recv )
 	{
+		std::string name;
 		int type;
 		int id;
-		recv >> type >> id;
+		recv >> type >> id >> name;
 		if ( type < EN_APPSERVER_COUNT )
 		{
+			onLog( outputString( "server=%s register type=%d id=%d", name.c_str(), type, recv.getFromID() ) );
 			MAP_APPSERVER_SESSION& container = m_mapAppSrvSession[type];
-			XServerSession* pSession = m_ptrServer->getSession( recv.getFromID() );
+			XAsioTCPSrvSession* pSession = m_ptrServer->getSession( recv.getFromID() );
 			if ( pSession )
 			{
 				container.insert( std::make_pair( recv.getFromID(), pSession ) );

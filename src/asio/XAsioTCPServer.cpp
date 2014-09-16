@@ -18,6 +18,11 @@ namespace XGAME
 
 	XAsioTCPServer::~XAsioTCPServer()
 	{
+		m_funcAcceptHandler = nullptr;
+		m_funcCancelHandler	= nullptr;
+
+		m_service.removeService( this );
+
 		stopAccept();
 	}
 
@@ -91,15 +96,12 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			try
+			if ( m_service.getService( m_iServiceId ) )
 			{
 				if ( m_acceptor && m_acceptor->is_open() )
 				{
 					ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
-				}				
-			}
-			catch(...)
-			{
+				}
 			}
 		}
 		else

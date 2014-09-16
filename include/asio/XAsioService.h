@@ -69,6 +69,9 @@ namespace XGAME
 		boost::asio::io_service&	m_ioService;
 		boost::asio::strand			m_strand;
 		
+		/**
+		 * 服务ID，用于唯一标识
+		 */
 		size_t						m_iServiceId;
 		bool						m_bIsStarted;
 		bool						m_bIsClosing;
@@ -109,10 +112,11 @@ namespace XGAME
 	//ASIO服务器管理器
 	class XGAME_API XAsioService
 	{
-	public:
+	protected:
 		typedef XAsioInterface*					SERVICE_TYPE;
 		typedef const SERVICE_TYPE				SERVICE_CTYPE;
-		typedef container::list<SERVICE_TYPE>	CONTAINER_TYPE;
+		typedef std::list<SERVICE_TYPE>			CONTAINER_TYPE;
+		//typedef container::list<SERVICE_TYPE>	CONTAINER_TYPE;
 
 	public:
 		XAsioService();
@@ -171,10 +175,7 @@ namespace XGAME
 		void	stopAndFree( SERVICE_TYPE service  );
 
 		virtual void freeService( SERVICE_TYPE service );
-		
-		FOREACH_ALL_MUTEX( m_srvContainer, m_srvMutex );
-		FOREVERY_ONE_MUTEX( m_srvContainer, m_srvMutex );
-		
+				
 		void	onLog( std::string& err );
 		void	onLog( const char* pInfo );
 
@@ -184,7 +185,6 @@ namespace XGAME
 	protected:
 		//------------------------------------------
 		//	member
-
 		CONTAINER_TYPE		m_srvContainer;
 		mutex				m_srvMutex;
 

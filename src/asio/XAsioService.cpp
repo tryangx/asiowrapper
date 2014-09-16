@@ -1,5 +1,24 @@
 #include "asio/XAsioService.h"
 
+/*
+	XASIO Wrapper
+
+	基于io_service封装一套service控制
+		
+	XAsioInterface ->
+		XAsioClientInterface -> XAsioTCPClient
+		XAsioServerInterface -> XAsioTCPServer
+	XAsioSession -> XAsioTCPSession
+
+	XAsioTCPSrvSession include
+		XAsioTCPSession
+
+	XServer include
+		XAsioTCPSrvSession
+		XAsioTCPServer
+*/
+
+
 namespace XGAME
 {
 	//线程中服务启动停止的间隔时间
@@ -24,6 +43,8 @@ namespace XGAME
 
 	XAsioInterface::~XAsioInterface()
 	{
+		m_iServiceId = -1;
+
 		m_funcLogHandler = nullptr;
 	}
 
@@ -37,7 +58,7 @@ namespace XGAME
 		if ( !m_bIsStarted )
 		{
 			m_bIsStarted = true;
- init();
+			init();
 		}
 	}
 	void XAsioInterface::stopService()
@@ -139,6 +160,7 @@ namespace XGAME
 
 	XAsioService::~XAsioService()
 	{
+		m_funcLogHandler = nullptr;
 		forceStopAllServices();
 		m_srvContainer.clear();
 	}
@@ -171,7 +193,13 @@ namespace XGAME
 		{
 			m_ptrIoServiceWork = boost::shared_ptr<io_service::work>( new io_service::work( getIOService() ) );
 			m_ioService.reset();
-			forEachAll( boost::mem_fn( &XAsioInterface::startService ) );
+			
+			for ( CONTAINER_TYPE::iterator it = m_srvContainer.begin(); it != m_srvContainer.end(); it++ )
+			{
+				SERVICE_TYPE srv = *it;
+				srv->startService();
+			}
+
 			runIOService( XASIO_SERVICE_THREAD_NUM );
 		}
 	}
@@ -181,7 +209,13 @@ namespace XGAME
 		if ( isStarted() )
 		{
 			m_ptrIoServiceWork.reset();
-			forEachAll( boost::mem_fn( &XAsioInterface::stopService ) );
+
+			for ( CONTAINER_TYPE::iterator it = m_srvContainer.begin(); it != m_srvContainer.end(); it++ )
+			{
+				SERVICE_TYPE srv = *it;
+				srv->stopService();
+			}
+
 			while( isStarted() )
 			{
 				this_thread::sleep( get_system_time() + posix_time::milliseconds( XASIO_SERVICE_THREAD_INTERVAL ) );
@@ -194,7 +228,12 @@ namespace XGAME
 		if ( isStarted() )
 		{
 			m_ptrIoServiceWork.reset();
-			forEachAll( boost::mem_fn( &XAsioInterface::stopService ) );
+
+			for ( CONTAINER_TYPE::iterator it = m_srvContainer.begin(); it != m_srvContainer.end(); it++ )
+			{
+				SERVICE_TYPE srv = *it;
+				srv->stopService();
+			}
 
 			int numLoop = XASIO_SERVICE_STOP_COUNTER;
 			while( isStarted() )
@@ -216,7 +255,10 @@ namespace XGAME
 		m_srvContainer.splice( std::end( tempCont ), m_srvContainer );
 		lock.unlock();
 
-		XGAME::forEachAll( tempCont, boost::bind(&XAsioService::stopAndFree, this, _1) );
+		for ( CONTAINER_TYPE::iterator it = m_srvContainer.begin(); it != m_srvContainer.end(); it++ )
+		{
+			stopAndFree( *it );
+		}
 	}
 
 	void XAsioService::registerService( SERVICE_TYPE service )
@@ -230,7 +272,8 @@ namespace XGAME
 	XAsioService::SERVICE_TYPE XAsioService::getService( int serviceId )
 	{
 		mutex::scoped_lock lock( m_srvMutex );
-		CONTAINER_TYPE::iterator iter = std::find_if( std::begin( m_srvContainer ), std::end( m_srvContainer ),
+		CONTAINER_TYPE::iterator iter = std::find_if( 
+			std::begin( m_srvContainer ), std::end( m_srvContainer ),
 			[=]( SERVICE_CTYPE& item ) { return serviceId == item->getServiceId(); } );
 		return iter != std::end( m_srvContainer ) ? *iter : nullptr;
 	}
@@ -304,7 +347,7 @@ namespace XGAME
 	{
 		//while (true)
 		{
-			try { return m_ioService.run(ec); }
+			try { return m_ioService.run( ec ); }
 			catch ( const std::exception& ) {}
 		}
 		return 0;

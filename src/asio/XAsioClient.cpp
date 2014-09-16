@@ -5,17 +5,13 @@
 
 namespace XGAME
 {
-#define DEFAULT_CONNECT_TIMEOUT_MS		10000
+#define DEFAULT_CONNECT_TIMEOUT_MS			10000
+
+#define DEFAULT_DISCONNECT_TIMEOUT_MS		6000
 	
-	std::function<void( const char* )>	XClient::m_sfuncLogHandler = nullptr;
-
-	void XClient::setLog( std::function<void( const char* )> handler ) { m_sfuncLogHandler = handler; }	
-	void XClient::disableLog() { m_sfuncLogHandler = nullptr; }
-	void XClient::onLogHandler( const char* pLog ) { if ( m_sfuncLogHandler != nullptr ) { m_sfuncLogHandler( pLog ); } }
-
 	XClient::XClient( XAsioService& io ) : m_service( io ),
 		m_iPort( 6580 ), m_bInit( false ), m_bIsConnected( false ), m_iClientId( 0 ),
-		m_connectTimer( m_service.getIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr ),
+		m_timer( m_service.getIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr ),
 		m_bReadHeader( false ), m_bTestEcho( false )
 	{
 	}
@@ -24,6 +20,11 @@ namespace XGAME
 	{
 		disconnect();
 		release();
+		
+		m_funcCloseHandler		=	nullptr;
+		m_funcRecvHandler		=	nullptr;
+		m_funcConnectHandler	=	nullptr;
+		m_funcLogHandler		=	nullptr;
 	}
 
 	TcpClientPtr XClient::getServicePtr() { return m_ptrTCPClient; }
@@ -55,6 +56,10 @@ namespace XGAME
 	void XClient::setRecvHandler( std::function<void( XClient*, XAsioRecvPacket& )> handler )
 	{
 		m_funcRecvHandler = handler;
+	}
+	void XClient::setLogHandler( std::function<void( const char* )> handler )
+	{
+		m_funcLogHandler = handler;
 	}
 	const char*	XClient::getIp() const
 	{
@@ -91,8 +96,8 @@ namespace XGAME
 		m_ptrTCPClient->connect( m_sHost, m_iPort );
 		setClientId( m_iClientId );
 		
-		m_connectTimer.expires_from_now( posix_time::millisec( DEFAULT_CONNECT_TIMEOUT_MS ) );
-		m_connectTimer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
+		m_timer.expires_from_now( posix_time::millisec( DEFAULT_CONNECT_TIMEOUT_MS ) );
+		m_timer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
 
 		m_bReadHeader = false;
 		return true;
@@ -117,7 +122,7 @@ namespace XGAME
 				m_ptrSession->close();
 			}
 		}
-		m_connectTimer.cancel();
+		m_timer.cancel();
 	}
 		
 	void XClient::send( XAsioBuffer& buff )
@@ -154,6 +159,8 @@ namespace XGAME
 				m_ptrSession->read( m_recvPacket.getHeader()->m_dwSize );
 			}
 		}
+//		m_timer.expires_from_now( posix_time::millisec( DEFAULT_CONNECT_TIMEOUT_MS ) );
+//		m_timer.async_wait( boost::bind( &XClient::onDisconnTimeCallback, this, boost::asio::placeholders::error ) );
 	}
 
 	void XClient::onConnect( TcpSessionPtr session )
@@ -168,8 +175,8 @@ namespace XGAME
 			disconnect();
 			return;
 		}
-		m_connectTimer.cancel();
-
+		m_timer.cancel();
+		
 		m_bIsConnected = true;
 		
 		m_ptrSession = session;
@@ -213,26 +220,33 @@ namespace XGAME
 	void XClient::onClose( size_t id )
 	{
 		m_bIsConnected = false;
-		ON_CALLBACK_PARAM( m_funcCloseHandler, m_iClientId );
+		ON_CALLBACK_PARAM( m_funcCloseHandler, m_iClientId );		
 	}
 	
 	void XClient::onLog( const char* pLog )
 	{
 		std::string log = pLog;
-		onLogHandler( outputString( "[%d]%s", m_iClientId, log.c_str() ) );
+		ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", m_iClientId, log.c_str() ) );
 	}
 	
 	void XClient::onConnTimeoutCallback( const boost::system::error_code& err )
 	{
 		if ( !m_bIsConnected )
 		{
-			if ( err )
-			{
-				onLog( err.message().c_str() );
-			}
-			else
+			if ( !err )
 			{
 				ON_CALLBACK_PARAM( m_funcConnectHandler, NULL );
+			}
+		}
+	}
+
+	void XClient::onDisconnTimeCallback( const boost::system::error_code& err )
+	{
+		if ( m_bIsConnected )
+		{
+			if ( !err )
+			{
+				ON_CALLBACK_PARAM( m_funcCloseHandler, NULL );
 			}
 		}
 	}

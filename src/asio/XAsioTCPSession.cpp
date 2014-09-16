@@ -49,8 +49,8 @@ namespace XGAME
 	{
 		boost::asio::async_read( *m_socket, boost::asio::buffer( m_readBuffer ),
 			boost::asio::transfer_at_least( 1 ),
-			boost::bind( &XAsioTCPSession::onReadCallback, shared_from_this(), 
-			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) );
+			m_strand.wrap( boost::bind( &XAsioTCPSession::onReadCallback, shared_from_this(), 
+			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
 	}
 	void XAsioTCPSession::read( size_t bufferSize )
 	{

@@ -105,7 +105,7 @@ namespace XGAME
 		 * 设置连接的宿主服务器类型
 		 * 即本身所处的应用服务器
 		 */
-		void			setServerType( enAppServerType type );
+		void			setServerType( enAppServerType type, std::string name );
 
 		/**
 		 * 尝试连接
@@ -136,6 +136,7 @@ namespace XGAME
 		XAsioService&			m_ioService;
 		
 		enAppServerType			m_serverType;
+		std::string				m_serverName;
 
 		unsigned int			m_iConnectId;
 
@@ -152,6 +153,12 @@ namespace XGAME
 	public:
 		XAppServer();
 		~XAppServer();
+
+		int		getConnectorCnt();
+
+		int		getAppServerCnt();
+
+		XServer*	getServer();
 
 		/**
 		 * 设置io_service
@@ -197,13 +204,15 @@ namespace XGAME
 		//-----------会话处理
 		XAppConnector*	getConnector( enAppServerType type );
 
-		XServerSession*	getAppServer( enAppServerType type );
+		XAsioTCPSrvSession*	getAppServer( enAppServerType type );
+
+		void	onConnectorRecv( XClient* pClient, XAsioRecvPacket& packet );
 				
 		//-----------日志处理
 		void	onLog( const char* pLog );
 		
 		//-----------连接处理
-		void	onAccept( XServerSession* pSession );
+		void	onAccept( XAsioTCPSrvSession* pSession );
 
 		//-----------发送封包
 		void	sendToServer( enAppServerType type, XAsioSendPacket& packet );
@@ -252,7 +261,7 @@ namespace XGAME
 		
 		//服务器对应CONNECTOR ID
 		//目前不支持多个服务器连接
-		typedef std::map<unsigned int, XServerSession*>		MAP_APPSERVER_SESSION;
+		typedef std::map<unsigned int, XAsioTCPSrvSession*>		MAP_APPSERVER_SESSION;
 		MAP_APPSERVER_SESSION				m_mapAppSrvSession[EN_APPSERVER_COUNT];
 		
 		//可连接服务器
@@ -349,6 +358,9 @@ namespace XGAME
 		 * 创建客户端连接
 		 */
 		unsigned int	createClient();
+		
+		int		getClientCount();
+		int		getTempClientCount();
 
 		/**
 		 * 关闭连接

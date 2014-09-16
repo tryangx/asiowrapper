@@ -17,8 +17,16 @@ namespace XGAME
 
 	XAsioTCPClient::~XAsioTCPClient()
 	{
+		m_service.removeService( this );
+
+		if ( m_ptrSession )
+		{
+			m_ptrSession->close();
+		}
+
 		m_funcConnectHandler	= nullptr;
 		m_funcReconnectHandler	= nullptr;
+		m_funcLogHandler		= nullptr;
 	}
 
 	void XAsioTCPClient::setConnectHandler( std::function<void( TcpSessionPtr )> handler )
@@ -36,6 +44,9 @@ namespace XGAME
 
 	void XAsioTCPClient::release()
 	{
+		m_funcConnectHandler	= nullptr;
+		m_funcReconnectHandler	= nullptr;
+		m_funcLogHandler		= nullptr;
 	}
 
 	void XAsioTCPClient::connect( const std::string& host, uint16_t port )
@@ -63,7 +74,10 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+			if ( m_service.getService( m_iServiceId ) )
+			{
+				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+			}			
 		}
 		else
 		{
@@ -86,12 +100,15 @@ namespace XGAME
 			{
 				if ( m_ptrSession )
 				{
-					m_ptrSession->close();	
+					m_ptrSession->close();
 				}
+			}
+			if ( m_service.getService( m_iServiceId ) )
+			{
+				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+				ON_CALLBACK_PARAM( m_funcConnectHandler, nullptr );
 				ON_CALLBACK( m_funcReconnectHandler );
 			}
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
-			ON_CALLBACK_PARAM( m_funcConnectHandler, nullptr );
 		}
 		else 
 		{
