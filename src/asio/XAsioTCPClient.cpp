@@ -5,28 +5,19 @@ namespace XGAME
 {
 	//---------------
 	//TCP¿Í»§¶Ë¿ØÖÆ
-	TcpClientPtr XAsioTCPClient::create( XAsioService& io )
-	{
-		return TcpClientPtr( new XAsioTCPClient( io ) )->shared_from_this();
-	}
-
-	XAsioTCPClient::XAsioTCPClient( XAsioService& io )
-		: XAsioClientInterface( io ), m_funcConnectHandler( nullptr ), m_ptrResolver( nullptr )
+	XAsioTCPClient::XAsioTCPClient( XAsioServiceController& controller )
+		: XAsioClientInterface( controller ), m_funcConnectHandler( nullptr ), m_ptrResolver( nullptr )
 	{
 	}
 
 	XAsioTCPClient::~XAsioTCPClient()
 	{
-		m_service.removeService( this );
+		m_controller.removeService( this );
 
 		if ( m_ptrSession )
 		{
 			m_ptrSession->close();
 		}
-
-		m_funcConnectHandler	= nullptr;
-		m_funcReconnectHandler	= nullptr;
-		m_funcLogHandler		= nullptr;
 	}
 
 	void XAsioTCPClient::setConnectHandler( std::function<void( TcpSessionPtr )> handler )
@@ -38,16 +29,15 @@ namespace XGAME
 		m_funcReconnectHandler = handler;
 	}
 
-	void XAsioTCPClient::init()
-	{
-	}
-
-	void XAsioTCPClient::release()
-	{
-		m_funcConnectHandler	= nullptr;
-		m_funcReconnectHandler	= nullptr;
-		m_funcLogHandler		= nullptr;
-	}
+// 	void XAsioTCPClient::init()
+// 	{
+// 	}
+// 
+// 	void XAsioTCPClient::release()
+// 	{
+// 		m_funcConnectHandler	= nullptr;
+// 		m_funcReconnectHandler	= nullptr;
+// 	}
 
 	void XAsioTCPClient::connect( const std::string& host, uint16_t port )
 	{
@@ -67,21 +57,20 @@ namespace XGAME
 
 	TcpSessionPtr XAsioTCPClient::createTCPSession()
 	{
-		return TcpSessionPtr( new XAsioTCPSession( m_service ) );
+		return TcpSessionPtr( new XAsioTCPSession( m_controller ) );
 	}
 
 	void XAsioTCPClient::onResolveCallback( const boost::system::error_code& err, boost::asio::ip::tcp::resolver::iterator it )
 	{
 		if ( err )
 		{
-			if ( m_service.getService( m_iServiceId ) )
+			if ( m_controller.getService( m_dwServiceId ) )
 			{
-				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+				XAsioLog::getInstance()->writeLog( "service:%d,code:%d,%s", m_dwServiceId, err.value(), err.message().c_str() );
 			}			
 		}
 		else
 		{
-			ON_CALLBACK( m_funcResolveHandler );
 			if ( m_ptrSession == nullptr )
 			{
 				m_ptrSession = createTCPSession();
@@ -96,16 +85,16 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			if ( error::operation_aborted != err && getService().isRunning() )
+			if ( error::operation_aborted != err && getController().isRunning() )
 			{
 				if ( m_ptrSession )
 				{
 					m_ptrSession->close();
 				}
 			}
-			if ( m_service.getService( m_iServiceId ) )
+			if ( m_controller.getService( m_dwServiceId ) )
 			{
-				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+				XAsioLog::getInstance()->writeLog( "service:%d,code:%d,%s", m_dwServiceId, err.value(), err.message().c_str() );
 				ON_CALLBACK_PARAM( m_funcConnectHandler, nullptr );
 				ON_CALLBACK( m_funcReconnectHandler );
 			}

@@ -4,12 +4,7 @@
 
 namespace XGAME
 {
-	UdpSessionPtr XAsioUDPSession::create( XAsioService& io )
-	{
-		return UdpSessionPtr( new XAsioUDPSession( io ) )->shared_from_this();
-	}
-
-	XAsioUDPSession::XAsioUDPSession( XAsioService& service ) : XAsioSession( service )
+	XAsioUDPSession::XAsioUDPSession( XAsioServiceController& controller ) : XAsioSession( controller )
 	{
 		m_socket = UdpSocketPtr( new udp::socket( m_ioService ) );
 	}
@@ -18,62 +13,47 @@ namespace XGAME
 	{
 	}
 
-	void XAsioUDPSession::init()
+	void XAsioUDPSession::recv()
 	{
-
-	}
-	void XAsioUDPSession::release()
-	{
-
+		recv( DEFAULT_READ_BYTES );
 	}
 
-	void XAsioUDPSession::read()
-	{
-		read( DEFAULT_READ_BYTES );
-	}
-
-	void XAsioUDPSession::read( size_t bufferSize )
+	void XAsioUDPSession::recv( size_t bufferSize )
 	{
 		if ( bufferSize > MAX_PACKET_SIZE )
 		{
 			throw std::runtime_error( "read size is out of buffer length");
 			return;
 		}
-		m_socket->async_receive( boost::asio::buffer( m_readBuffer, bufferSize ),
-			boost::bind( &XAsioUDPSession::onReadCallback, shared_from_this(), boost::asio::placeholders::error, 
+		m_socket->async_receive( boost::asio::buffer( m_recvBuffer, bufferSize ),
+			boost::bind( &XAsioUDPSession::onRecvCallback, shared_from_this(), boost::asio::placeholders::error, 
 			boost::asio::placeholders::bytes_transferred ) );
 	}
-	void XAsioUDPSession::write( XAsioBuffer& buffer )
+	void XAsioUDPSession::send( XAsioBuffer& buffer )
 	{
 		size_t size = buffer.getDataSize();
 		memcpy_s( (void*)m_sendBuffer, MAX_PACKET_SIZE, buffer.getData(), size );
 		m_socket->async_send( boost::asio::buffer( m_sendBuffer, size ),
-			boost::bind( &XAsioUDPSession::onWriteCallback, shared_from_this(), boost::asio::placeholders::error,
+			boost::bind( &XAsioUDPSession::onSendCallback, shared_from_this(), boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred ) );
 	}
 
 	const UdpSocketPtr& XAsioUDPSession::getSocket() const { return m_socket; }
 
 	//----------------------------------------
-
-	UdpClientPtr XAsioUDPClient::create( XAsioService& io )
-	{
-		return UdpClientPtr( new XAsioUDPClient( io ) )->shared_from_this();
-	}
 	
-	XAsioUDPClient::XAsioUDPClient( XAsioService& io )
-		: XAsioClientInterface( io ), m_funcConnectHandler( nullptr ), m_ptrResolver( nullptr )
+	XAsioUDPClient::XAsioUDPClient( XAsioServiceController& controller )
+		: XAsioClientInterface( controller ), m_funcConnectHandler( nullptr ), m_ptrResolver( nullptr )
 	{
 	}
 
 	XAsioUDPClient::~XAsioUDPClient()
 	{
-		m_funcConnectHandler = nullptr;
 	}
 
 	void XAsioUDPClient::connect( const std::string& host, uint16_t port )
 	{
-		//connect( host, boost::lexical_cast<std::string>( port ) );
+		connect( host, boost::lexical_cast<std::string>( port ) );
 	}
 
 	void XAsioUDPClient::connect( const std::string& host, const std::string& protocol )
@@ -105,12 +85,11 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
+			XAsioLog::getInstance()->writeLog( "service:%d,code:%d,err:%s", m_dwServiceId, err.value(), err.message().c_str() );
 		}
 		else
 		{
-			ON_CALLBACK( m_funcResolveHandler );
-			UdpSessionPtr session( new XAsioUDPSession( m_service ) );
+			UdpSessionPtr session( new XAsioUDPSession( m_controller ) );
 			boost::asio::async_connect( *session->getSocket(), it, 
 				m_strand.wrap( boost::bind( &XAsioUDPClient::onConnectCallback, 
 				shared_from_this(), session, boost::asio::placeholders::error ) ) );
@@ -118,14 +97,9 @@ namespace XGAME
 	}
 
 	//-----------------------------
-
-	UdpServerPtr XAsioUDPServer::create( XAsioService& io )
-	{
-		return UdpServerPtr( new XAsioUDPServer( io ) )->shared_from_this();
-	}
-
-	XAsioUDPServer::XAsioUDPServer( XAsioService& io )
-		: XAsioServerInterface( io ), m_funcAcceptHandler( nullptr )
+	
+	XAsioUDPServer::XAsioUDPServer( XAsioServiceController& controller )
+		: XAsioServerInterface( controller ), m_funcAcceptHandler( nullptr )
 	{
 	}
 
@@ -152,19 +126,19 @@ namespace XGAME
 	{
 		if ( m_ptrSession != nullptr )
 		{
-			m_ptrSession = UdpSessionPtr( new XAsioUDPSession( m_service ) )->shared_from_this();
+			m_ptrSession = UdpSessionPtr( new XAsioUDPSession( m_controller ) )->shared_from_this();
 		}
 		boost::system::error_code err;
 		m_ptrSession->getSocket()->open( boost::asio::ip::udp::v4(), err );
 		if ( err ) 
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+			XAsioLog::getInstance()->writeLog( "service:%d,code:%d %s", m_dwServiceId, err.value(), err.message().c_str() );
 			return;
 		}
 		m_ptrSession->getSocket()->bind( udp::endpoint( udp::v4(), port ), err );
 		if ( err ) 
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+			XAsioLog::getInstance()->writeLog( "service:%d,code:%d %s", m_dwServiceId, err.value(), err.message().c_str() );
 		}
 		else
 		{
@@ -176,7 +150,7 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
+			XAsioLog::getInstance()->writeLog( "service:%d,code:%d err:%s", m_dwServiceId, err.value(), err.message().c_str() );
 		}
 		else if ( m_funcConnectHandler != nullptr )
 		{

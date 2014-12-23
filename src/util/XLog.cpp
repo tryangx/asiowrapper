@@ -11,7 +11,7 @@ namespace XGAME
 	*/
 	XLogger::XLogger() : m_pLogFile( NULL ), m_bufferIndex( 0 ), m_bInit( false ) {}
 
-	XLogger::~XLogger() { closeLogFile(); }
+	XLogger::~XLogger() { closeFile(); }
 
 	bool XLogger::setLogFile( const char* pFileName )
 	{
@@ -34,12 +34,12 @@ namespace XGAME
 		return m_bInit;
 	}
 
-	bool XLogger::isFileOpend()
+	bool XLogger::isFileOpened()
 	{
 		return m_bInit && m_pLogFile;
 	}
 
-	bool XLogger::openLogFile()
+	bool XLogger::openFile()
 	{
 		mutex::scoped_lock lock( m_mutex );
 		if ( m_bInit )
@@ -49,7 +49,7 @@ namespace XGAME
 		return false;
 	}
 
-	void XLogger::closeLogFile()
+	void XLogger::closeFile()
 	{
 		mutex::scoped_lock lock( m_mutex );
 		if( m_pLogFile )
@@ -72,7 +72,7 @@ namespace XGAME
 		if( size > MAX_LOG_BUFFER || immediately )
 		{
 			lock.unlock();
-			writeToFileImmed( pLog, size );
+			writeLogToFile( pLog, size );
 		}
 		else if( size > 0 && m_bufferIndex + size < MAX_LOG_BUFFER )
 		{
@@ -89,25 +89,25 @@ namespace XGAME
 		}
 	}
 
-	void XLogger::writeToFileImmed( const char* pLog, size_t size )
+	void XLogger::writeLogToFile( const char* pLog, size_t size )
 	{
-		if ( isFileOpend() )
+		if ( isFileOpened() )
 		{
 			flush();
 		}
-		if ( openLogFile() )
+		if ( openFile() )
 		{
 			fwrite( pLog, 1, size, m_pLogFile );
-			closeLogFile();
+			closeFile();
 		}
 	}
 
 	bool XLogger::flush()
 	{
-		if ( openLogFile() )
+		if ( openFile() )
 		{
-			writeToFile();
-			closeLogFile();
+			writeFile();
+			closeFile();
 			return m_bufferIndex == 0;
 		}
 		return false;
@@ -131,7 +131,7 @@ namespace XGAME
 		}
 	}
 
-	void XLogger::writeToFile()
+	void XLogger::writeFile()
 	{
 		mutex::scoped_lock lock( m_mutex );
 		if( !m_pLogFile )
@@ -145,7 +145,7 @@ namespace XGAME
 		}
 	}
 
-	void XLogger::writeTime( bool immediate )
+	void XLogger::writeLogTime( bool immediate )
 	{
 		time_t tt;
 		time( &tt );
@@ -157,13 +157,13 @@ namespace XGAME
 	}
 
 	//-----------------------------------
-	XLogUtil::XLogUtil() : m_sOrgFileName( "srvlog" ), m_mode( EN_MODE_FILELOG ), m_bUseHourFileName( false ) {}
+	XLogUtil::XLogUtil() : m_sOrgFileName( "srvlog" ), m_enMode( EN_MODE_FILELOG ), m_bUseHourFileName( false ) {}
 	
 	XLogUtil::~XLogUtil() { close(); }
 
-	void XLogUtil::setMode( int mode )
+	void XLogUtil::setMode( enLogMode mode )
 	{
-		m_mode = mode;
+		m_enMode = mode;
 	}
 
 	void XLogUtil::setLogFileName( const char* pFileName, bool useHourFileName )
@@ -182,7 +182,7 @@ namespace XGAME
 	void XLogUtil::clear()
 	{
 		mutex::scoped_lock lock( m_mutex );
-		if ( m_mode == EN_MODE_FILELOG )
+		if ( m_enMode == EN_MODE_FILELOG )
 		{
 			m_log.clear();
 		}
@@ -190,28 +190,36 @@ namespace XGAME
 	void XLogUtil::close()
 	{
 		mutex::scoped_lock lock( m_mutex );
-		if ( m_mode == EN_MODE_FILELOG )
+		if ( m_enMode == EN_MODE_FILELOG )
 		{
 			m_log.flush();
 		}
 	}
 
+	void XLogUtil::writeString( const char* pszFormat )
+	{
+		mutex::scoped_lock lock( m_mutex );
+		updateLogFileName();
+		m_log.writeLogTime( true );
+		m_log.writeLog( m_szText, true );
+	}
+
 	void XLogUtil::writeLog( const char* pszFormat, ... )
 	{
-		mutex::scoped_lock lock( m_mutex );				
+		mutex::scoped_lock lock( m_mutex );
 		va_list args;
 		va_start( args, pszFormat );
 		vsnprintf( m_szText, MAX_LOG_BUFFER, pszFormat, args );
 		va_end( args );
 
 		updateLogFileName();
-		m_log.writeTime( true );
+		m_log.writeLogTime( true );
 		m_log.writeLog( m_szText, true );
 	}
 
 	void XLogUtil::updateLogFileName()
 	{
-		if ( m_mode == EN_MODE_FILELOG )
+		if ( m_enMode == EN_MODE_FILELOG )
 		{
 			time_t tt;
 			time( &tt );

@@ -2,7 +2,6 @@
 
 #include "XAsioInterface.h"
 #include "XAsioSession.h"
-#include "../util/XLog.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 
@@ -10,11 +9,11 @@ namespace XGAME
 {
 	enum enBufferType
 	{
-		SESSION_SEND_BUFFER,
-		SESSION_RECV_BUFFER,
+		EN_SESSION_SEND_BUFFER,
+		EN_SESSION_RECV_BUFFER,
 
-		SESSION_BUFFER_COUNT	= 2,
-		SESSION_MUTEX_COUNT		= 2,
+		EN_SESSION_BUFFER_COUNT	= 2,
+		EN_SESSION_MUTEX_COUNT		= 2,
 	};
 
 	enum enTimerID
@@ -37,15 +36,13 @@ namespace XGAME
 	typedef boost::shared_ptr<class XAsioTCPServer>				TcpServerPtr;
 	typedef boost::shared_ptr<boost::asio::ip::tcp::acceptor>	TcpAcceptorPtr;
 	
-	//----------------------
-	//	TCP连接会话
+	/**
+	 * TCP连接会话
+	 */
 	class XGAME_API XAsioTCPSession : public XAsioSession, public XAsioTimer, public boost::enable_shared_from_this<XAsioTCPSession>
 	{
 	public:
-		static TcpSessionPtr	create( XAsioService& io );
-
-	public:
-		XAsioTCPSession( XAsioService& io );
+		XAsioTCPSession( XAsioServiceController& controller );
 		~XAsioTCPSession();
 
 		/**
@@ -66,24 +63,25 @@ namespace XGAME
 		/**
 		 * 接收数据
 		 */
-		virtual void	read();
+		virtual void	recv();
 
 		/**
 		 * 接收指定长度数据
 		 */
-		virtual void	read( size_t bufferSize );
+		virtual void	recv( size_t bufferSize );
 
 		/**
 		 * 发送
 		 */
-		virtual void	write( XAsioBuffer& buffer );
+		virtual void	send( XAsioBuffer& buffer );
 
 		/**
-		 * 发送挂起
+		 * 暂停发送
+		 * 
 		 */
 		void			suspendSend( bool b );
 		/**
-		 * 派发挂起
+		 * 暂停接收数据的派发
 		 */
 		void			suspendDispatch( bool b );
 			
@@ -100,66 +98,94 @@ namespace XGAME
 		/**
 		 * 处理发送队列
 		 */
-		bool			doSend();
+		bool			processSend();
 		/**
 		 * 处理接收队列
 		 */
-		bool			doRead();
+		bool			processRead();
 
 		/**
 		 * 直接发送缓存
 		 */
-		void			sendDirectly( const XAsioBuffer& buffer );
-
-		virtual bool	onTimer( unsigned int id, const void* pUserData );
-		virtual void	onReadCallback( const boost::system::error_code& err, size_t bytesTransferred );
-		virtual void	onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred );
+		void			sendImmediately( const XAsioBuffer& buffer );
 
 		/**
-		 * 响应关闭的处理
+		 * 定时器响应
+		 */
+		virtual bool	onTimer( unsigned int id, const void* pUserData );
+		/**
+		 * 完成接收响应处理
+		 */
+		virtual void	onRecvCallback( const boost::system::error_code& err, size_t bytesTransferred );
+		/**
+		 * 完成发送响应处理
+		 */
+		virtual void	onSendCallback( const boost::system::error_code& err, size_t bytesTransferred );
+		/**
+		 * 关闭的响应处理
 		 */
 		virtual void	onCloseCallback( const boost::system::error_code& err );
 
 	protected:
 		TcpSocketPtr			m_socket;
 		
-		typedef container::list<XAsioBuffer>	PACKAGE_CONAINER;
-		PACKAGE_CONAINER		m_buffers[SESSION_BUFFER_COUNT];
-		boost::mutex			m_mutexs[SESSION_MUTEX_COUNT];
+		typedef container::list<XAsioBuffer>	PACKET_CONAINER;
+		/**
+		 * 接收发送队列
+		 */
+		PACKET_CONAINER			m_packetBuffs[EN_SESSION_BUFFER_COUNT];		
+		boost::mutex			m_mutexs[EN_SESSION_MUTEX_COUNT];
 
+		/**
+		 * 是否发送中标志
+		 */
 		bool					m_isSending;
+		/**
+		 * 是否暂停发送
+		 */
 		bool					m_isSuspendSend;
+		/**
+		 * 是否暂停派发
+		 */
 		bool					m_isSuspendDispatch;
 
-		size_t					m_sendSize;
-		size_t					m_recvSize;
+		/**
+		 * 发送数据长度
+		 */
+		unsigned long			m_dwSendSize;
+		/**
+		 * 接收数据长度
+		 */
+		unsigned long			m_dwRecvSize;
 	};
 
-	//-----------------------
-	//	TCP客户端
+	/**
+	 * TCP客户端
+	 */
 	class XGAME_API XAsioTCPClient : public XAsioClientInterface, public boost::enable_shared_from_this<XAsioTCPClient>
 	{
 	public:
-		static TcpClientPtr	create( XAsioService& io );
-
-	public:
+		XAsioTCPClient( XAsioServiceController& controller );
 		~XAsioTCPClient();
 		
-		virtual void	init();
-		virtual void	release();
+		//virtual void	init();
+
+		//virtual void	release();
 		
-		/**
-		 * 连接
-		 */
 		virtual void	connect( const std::string& host, uint16_t port );
+
 		virtual void	connect( const std::string& host, const std::string& protocol );
 		
+		/**
+		 * 设置连接到服务器成功的回调
+		 */
 		void			setConnectHandler( std::function<void( TcpSessionPtr )> );
+		/**
+		 * 设置触发重连时的回调
+		 */
 		void			setReconnectHandler( std::function<void()> );
 		
-	protected:
-		XAsioTCPClient( XAsioService& io );
-				
+	protected:				
 		/**
 		 * 生成线程对象
 		 * 重载可用于内存池管理
@@ -184,28 +210,30 @@ namespace XGAME
 		std::function<void()>					m_funcReconnectHandler;
 	};
 
-	//-----------------------
-	//	TCP server
+	/**
+	 * TCP服务器
+	 */
 	class XGAME_API XAsioTCPServer : public XAsioServerInterface, public boost::enable_shared_from_this<XAsioTCPServer>
 	{
 	public:
-		static TcpServerPtr	create( XAsioService& io );
-
-	public:
+		XAsioTCPServer( XAsioServiceController& controller );
 		~XAsioTCPServer();
 		
 		const TcpAcceptorPtr	getAcceptor() const;
-
-		virtual void	init();
-		virtual void	release();
-		
+				
 		/**
 		 * 开始侦听
 		 * @param threadNum		侦听的线程数量
 		 * @param port			侦听的端口
 		 */
-		virtual void	startAccept( int threadNum, uint16_t port );
-		virtual void	startAccept();
+		virtual void	startAccept( int threadNum, unsigned short port );
+
+		/**
+		 * 开始侦听
+		 * @param threadNum		侦听的线程数量
+		 * @param port			侦听的端口
+		 */
+		virtual void	startAccept( unsigned short port );
 
 		/**
 		 * 停止侦听
@@ -224,8 +252,9 @@ namespace XGAME
 		void			setCancelHandler( std::function<void()> handler );
 		
 	protected:
-		XAsioTCPServer( XAsioService& io );
-				
+		
+		void			processAccept();
+
 		/**
 		 * 生成线程对象
 		 * 重载可用于内存池管理

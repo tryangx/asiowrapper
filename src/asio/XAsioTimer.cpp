@@ -19,7 +19,7 @@ namespace XGAME
 		TIMER_TYPE st = { id };
 
 		mutex::scoped_lock lock( m_timerMutex );		
-		auto it = m_timerContainer.find( st );
+		CONTAINER_TIMER::iterator it = m_timerContainer.find( st );
 		if ( it == std::end( m_timerContainer ) )
 		{
 			it = m_timerContainer.insert( st ).first;
@@ -35,10 +35,9 @@ namespace XGAME
 
 	void XAsioTimer::stopTimer( unsigned int id )
 	{
-		TIMER_TYPE st = { id };
-
 		mutex::scoped_lock lock( m_timerMutex );
-		auto it = m_timerContainer.find( st );
+		TIMER_TYPE st = { id };
+		CONTAINER_TIMER::iterator it = m_timerContainer.find( st );
 		if ( it != std::end( m_timerContainer ) )
 		{
 			lock.unlock();
@@ -48,7 +47,12 @@ namespace XGAME
 
 	void XAsioTimer::stopAllTimer()
 	{
-		forEachAll( boost::bind( ( void (XAsioTimer::*)(TIMER_TYPE&) )&XAsioTimer::stopTimer, this, _1 ) );
+		mutex::scoped_lock lock( m_timerMutex );
+		CONTAINER_TIMER::iterator it;
+		for ( it = m_timerContainer.begin(); it != m_timerContainer.end(); it++ )
+		{
+			stopTimer( *it );
+		}
 	}
 
 	bool XAsioTimer::onTimer( unsigned int id, const void* pUserData )
@@ -75,5 +79,5 @@ namespace XGAME
 		{
 			startTimer( st );
 		}
-	}	
+	}
 }

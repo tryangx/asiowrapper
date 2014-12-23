@@ -1,8 +1,17 @@
+/**
+ * 用于ASIO的定时器 
+ */
 #pragma once
 
 #include "XApi.h"
-#include "XAsioBase.h"
+#include <boost/asio.hpp>
+#include <boost/smart_ptr.hpp>
 #include <boost/container/set.hpp>
+#include <boost/thread.hpp>
+
+using namespace boost;
+using namespace boost::asio;
+using namespace boost::system;
 
 namespace XGAME
 {
@@ -25,7 +34,7 @@ namespace XGAME
 			//定时器状态
 			enTimerStatus	_enStatus;
 			
-			//定时器间隔时间
+			//定时器间隔时间，单位毫秒
 			size_t			_milliseconds;
 			
 			//玩家数据
@@ -59,9 +68,6 @@ namespace XGAME
 
 		//停止全部定时器
 		void	stopAllTimer();
-
-		FOREACH_ALL_MUTEX( m_timerContainer, m_timerMutex );
-		FOREVERY_ONE_MUTEX( m_timerContainer, m_timerMutex );
 
 	protected:
 

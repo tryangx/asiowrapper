@@ -11,24 +11,11 @@
 
 namespace XGAME
 {
-	//前10000号保留
-#define CLIENT_START_ID		10000
-
-	class XServer;
-	class XAsioTCPSrvSession;
-
-	typedef boost::shared_ptr<class XAsioTCPSrvSession>		TCPSrvSessionPtr;
-	
-	//---------------------------
-	//	连接到服务器的会话
+	/**
+	 * 连接到服务器的会话
+	 */
 	class XGAME_API XAsioTCPSrvSession : public boost::enable_shared_from_this<XAsioTCPSrvSession>
 	{
-	public:
-		static TCPSrvSessionPtr	create( TcpSessionPtr ptr );
-
-	protected:
-		static std::function<void( const char* )>			m_sfuncLogHandler;
-
 	public:
 		XAsioTCPSrvSession();
 		XAsioTCPSrvSession( TcpSessionPtr ptr );
@@ -79,10 +66,6 @@ namespace XGAME
 
 		//---------回调处理相关
 		/**
-		 * 日志的处理
-		 */
-		void			setLogHandler( std::function<void( const char* )> handler );
-		/**
 		 * 接收的处理
 		 */
 		void			setRecvHandler( std::function<void( XAsioTCPSrvSession*, XAsioRecvPacket& )> handler );
@@ -110,24 +93,27 @@ namespace XGAME
 		long long			m_lastTickerTime;
 
 		std::function<void( XAsioTCPSrvSession*, XAsioRecvPacket& )>	m_funcRecvHandler;
-		std::function<void( const char* )>		m_funcLogHandler;
 
 		XAsioStat*			m_pStat;
 	};
 
+	typedef boost::shared_ptr<class XAsioTCPSrvSession>		TCPSrvSessionPtr;
 	//---------------------
 	//  服务器
 	class XServer // : public XAsioPool<XAsioTCPSrvSession>
 	{
 	public:
-		XServer( XAsioService& service );
+		XServer( XAsioServiceController& controller );
 		~XServer();
 
 		/**
 		 * 获取服务
 		 */
 		TcpServerPtr		getService();
-
+		
+		/**
+		 * 获取IO状态统计器
+		 */
 		XAsioStat*			getStat();
 
 		/**
@@ -143,7 +129,7 @@ namespace XGAME
 		/**
 		 * 关闭会话
 		 */
-		void				closeSession( unsigned int id );
+		void					closeSession( unsigned int id );
 
 		/**
 		 * 设置连接地址
@@ -198,7 +184,6 @@ namespace XGAME
 		bool		queryRecvPacket( XAsioRecvPacket& packet );
 		
 	public:
-		void		setLogHandler( std::function<void( const char* )> handler );
 		void		setConnectHandler( std::function<void( XAsioTCPSrvSession* )> handler );
 		
 	protected:
@@ -221,7 +206,7 @@ namespace XGAME
 		/**
 		 * asio服务对象
 		 */
-		XAsioService&					m_service;
+		XAsioServiceController&			m_controller;
 
 		/**
 		 * 网络接口，用于服务器处理
@@ -254,7 +239,6 @@ namespace XGAME
 
 		XAsioStat						m_stat;
 
-		std::function<void( const char* )>			m_funcLogHandler;
 		std::function<void( XAsioTCPSrvSession* )>		m_funcAcceptHandler;
 	};
 }

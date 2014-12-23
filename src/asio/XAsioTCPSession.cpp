@@ -7,10 +7,10 @@ namespace XGAME
 
 	//-----------------------------
 	//	TCPÁ¬½Ó
-	XAsioTCPSession::XAsioTCPSession( XAsioService& io )
-		: XAsioSession( io ), XAsioTimer( m_ioService ),
+	XAsioTCPSession::XAsioTCPSession( XAsioServiceController& controller )
+		: XAsioSession( controller ), XAsioTimer( m_ioService ),
 		m_isSending( false ), m_isSuspendSend( false ), m_isSuspendDispatch( false ),
-		m_sendSize( 0 ), m_recvSize( 0 )
+		m_dwSendSize( 0 ), m_dwRecvSize( 0 )
 	{
 		m_socket = TcpSocketPtr( new tcp::socket( m_ioService ) );
 	}
@@ -20,60 +20,66 @@ namespace XGAME
 		close();
 	}
 
-	const TcpSocketPtr XAsioTCPSession::getSocket() const { return m_socket; }
+	const TcpSocketPtr XAsioTCPSession::getSocket() const
+	{
+		return m_socket;
+	}
 
-	bool XAsioTCPSession::isOpen() { return m_socket && m_socket->is_open(); }
+	bool XAsioTCPSession::isOpen()
+	{
+		return m_socket && m_socket->is_open();
+	}
 
 	void XAsioTCPSession::close()
 	{
-		if ( m_socket && m_socket->is_open() ) 
+		if ( isOpen() ) 
 		{
 			boost::system::error_code err;
 			m_socket->shutdown( tcp::socket::shutdown_both, err );
 			m_socket->close( err );
 		}
-		for ( int type = SESSION_SEND_BUFFER; type < SESSION_BUFFER_COUNT; type++ )
+		for ( int type = EN_SESSION_SEND_BUFFER; type < EN_SESSION_BUFFER_COUNT; type++ )
 		{
 			mutex::scoped_lock lock( m_mutexs[type] );
-			PACKAGE_CONAINER::iterator it;
-			for ( it = std::begin( m_buffers[type] ); it != std::end( m_buffers[type] ); it++ )
+			PACKET_CONAINER::iterator it;
+			for ( it = std::begin( m_packetBuffs[type] ); it != std::end( m_packetBuffs[type] ); it++ )
 			{
 				XAsioBuffer& buffer = *it;
 				buffer.attach();
 			}
-			m_buffers[type].clear();
+			m_packetBuffs[type].clear();
 		}
 	}
 
-	void XAsioTCPSession::read()
+	void XAsioTCPSession::recv()
 	{
-		boost::asio::async_read( *m_socket, boost::asio::buffer( m_readBuffer ),
+		boost::asio::async_read( *m_socket, boost::asio::buffer( m_recvBuffer ),
 			boost::asio::transfer_at_least( 1 ),
-			m_strand.wrap( boost::bind( &XAsioTCPSession::onReadCallback, shared_from_this(), 
+			m_strand.wrap( boost::bind( &XAsioTCPSession::onRecvCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
 	}
-	void XAsioTCPSession::read( size_t bufferSize )
+	void XAsioTCPSession::recv( size_t bufferSize )
 	{
 		if ( bufferSize > MAX_PACKET_SIZE )
 		{
 			throw std::runtime_error( "read size is out of buffer length" );
 			return;
 		}
-		m_socket->async_read_some( boost::asio::buffer( m_readBuffer, bufferSize ),
-			m_strand.wrap( boost::bind( &XAsioTCPSession::onReadCallback, shared_from_this(), 
+		m_socket->async_read_some( boost::asio::buffer( m_recvBuffer, bufferSize ),
+			m_strand.wrap( boost::bind( &XAsioTCPSession::onRecvCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
 	}
-	void XAsioTCPSession::write( XAsioBuffer& buffer )
+	void XAsioTCPSession::send( XAsioBuffer& buffer )
 	{
-		mutex::scoped_lock lock( m_mutexs[SESSION_SEND_BUFFER] );
+		mutex::scoped_lock lock( m_mutexs[EN_SESSION_SEND_BUFFER] );
 
 		XAsioBuffer newBuffer;
 		newBuffer.copy( buffer );
 		newBuffer.detach();
-		m_buffers[SESSION_SEND_BUFFER].push_back( newBuffer );
+		m_packetBuffs[EN_SESSION_SEND_BUFFER].push_back( newBuffer );
 		lock.unlock();
 
-		doSend();
+		processSend();
 	}
 
 	bool XAsioTCPSession::onTimer( unsigned int id, const void* pUserData )
@@ -81,7 +87,7 @@ namespace XGAME
 		switch( id )
 		{
 		case SESSION_DISPATCH_TIMERID:
-			return doRead();
+			return processRead();
 			break;
 		default:
 			return XAsioTimer::onTimer( id, pUserData );
@@ -92,11 +98,11 @@ namespace XGAME
 
 	size_t XAsioTCPSession::getSendSize() const
 	{
-		return m_sendSize;
+		return m_dwSendSize;
 	}
 	size_t XAsioTCPSession::getRecvSize() const
 	{
-		return m_recvSize;
+		return m_dwRecvSize;
 	}
 
 	void XAsioTCPSession::suspendSend( bool b )
@@ -104,7 +110,7 @@ namespace XGAME
 		m_isSuspendSend = b;
 		if ( !m_isSuspendSend )
 		{
-			doSend();
+			processSend();
 		}
 	}
 
@@ -117,94 +123,94 @@ namespace XGAME
 		}
 	}
 
-	void XAsioTCPSession::sendDirectly( const XAsioBuffer& buffer )
+	void XAsioTCPSession::sendImmediately( const XAsioBuffer& buffer )
 	{
 		m_isSending = true;
 
 		size_t size = buffer.getDataSize();
 		memcpy_s( (void*)m_sendBuffer, MAX_PACKET_SIZE, buffer.getData(), size );
 		boost::asio::async_write( *m_socket, boost::asio::buffer( m_sendBuffer, size ),
-			m_strand.wrap( boost::bind( &XAsioTCPSession::onWriteCallback, shared_from_this(), 
+			m_strand.wrap( boost::bind( &XAsioTCPSession::onSendCallback, shared_from_this(), 
 			boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred ) ) );
 	}
 
-	bool XAsioTCPSession::doSend()
+	bool XAsioTCPSession::processSend()
 	{
 		if ( m_isSending || m_isSuspendSend )
 		{
 			return false;
 		}
-		mutex::scoped_lock lock( m_mutexs[SESSION_SEND_BUFFER] );
-		if ( !m_buffers[SESSION_SEND_BUFFER].empty() )
+		mutex::scoped_lock lock( m_mutexs[EN_SESSION_SEND_BUFFER] );
+		if ( !m_packetBuffs[EN_SESSION_SEND_BUFFER].empty() )
 		{
-			XAsioBuffer& buffer = m_buffers[SESSION_SEND_BUFFER].front();
-			sendDirectly( buffer );
+			XAsioBuffer& buffer = m_packetBuffs[EN_SESSION_SEND_BUFFER].front();
+			sendImmediately( buffer );
 			buffer.attach();
-			m_buffers[SESSION_SEND_BUFFER].pop_front();
+			m_packetBuffs[EN_SESSION_SEND_BUFFER].pop_front();
 		}
-		return !m_buffers[SESSION_SEND_BUFFER].empty();
+		return !m_packetBuffs[EN_SESSION_SEND_BUFFER].empty();
 	}
 
-	bool XAsioTCPSession::doRead()
+	bool XAsioTCPSession::processRead()
 	{
-		mutex::scoped_lock lock( m_mutexs[SESSION_RECV_BUFFER] );
-		if ( m_buffers[SESSION_RECV_BUFFER].empty() )
+		mutex::scoped_lock lock( m_mutexs[EN_SESSION_RECV_BUFFER] );
+		if ( m_packetBuffs[EN_SESSION_RECV_BUFFER].empty() )
 		{
 			return false;
 		}
-		PACKAGE_CONAINER::iterator it;
-		for ( it = std::begin( m_buffers[SESSION_RECV_BUFFER] ); it != std::end( m_buffers[SESSION_RECV_BUFFER] ); it++ )
+		PACKET_CONAINER::iterator it;
+		for ( it = std::begin( m_packetBuffs[EN_SESSION_RECV_BUFFER] ); it != std::end( m_packetBuffs[EN_SESSION_RECV_BUFFER] ); it++ )
 		{
 			XAsioBuffer& tempBuffer = *it;
-			ON_CALLBACK_PARAM( m_funcReadHandler, tempBuffer );
+			ON_CALLBACK_PARAM( m_funcRecvHandler, tempBuffer );
 			tempBuffer.attach();
 		}
-		m_buffers[SESSION_RECV_BUFFER].clear();
+		m_packetBuffs[EN_SESSION_RECV_BUFFER].clear();
 		return true;
 	}
 
-	void XAsioTCPSession::onReadCallback( const boost::system::error_code& err, size_t bytesTransferred )
+	void XAsioTCPSession::onRecvCallback( const boost::system::error_code& err, size_t bytesTransferred )
 	{
 		if ( err ) 
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
-			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
+			XAsioLog::getInstance()->writeLog( "session:%d,code:%d,err:%s", m_dwSessionId, err.value(), err.message().c_str() );
+			ON_CALLBACK_PARAM( m_funcCloseHandler, m_dwSessionId );
 		}
 		else
 		{
-			m_recvSize += bytesTransferred;
+			m_dwRecvSize += bytesTransferred;
 
 			XAsioBuffer buffer;
-			buffer.writeData( m_readBuffer, bytesTransferred );
+			buffer.writeData( m_recvBuffer, bytesTransferred );
 			if ( m_isSuspendDispatch )
 			{
 				buffer.detach();
-				mutex::scoped_lock lock( m_mutexs[SESSION_RECV_BUFFER] );
-				m_buffers[SESSION_RECV_BUFFER].push_back( buffer );
+				mutex::scoped_lock lock( m_mutexs[EN_SESSION_RECV_BUFFER] );
+				m_packetBuffs[EN_SESSION_RECV_BUFFER].push_back( buffer );
 				lock.unlock();
 			}
 			else
 			{
-				ON_CALLBACK_PARAM( m_funcReadHandler, buffer );
+				ON_CALLBACK_PARAM( m_funcRecvHandler, buffer );
 			}	
 		}
 	}
 
-	void XAsioTCPSession::onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred )
+	void XAsioTCPSession::onSendCallback( const boost::system::error_code& err, size_t bytesTransferred )
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
-			ON_CALLBACK_PARAM( m_funcCloseHandler, m_sessionId );
+			XAsioLog::getInstance()->writeLog( "session:%d,code:%d,err:%s", m_dwSessionId, err.value(), err.message().c_str() );
+			ON_CALLBACK_PARAM( m_funcCloseHandler, m_dwSessionId );
 		}	
 		else
 		{
-			m_sendSize += bytesTransferred;
+			m_dwSendSize += bytesTransferred;
 
-			ON_CALLBACK_PARAM( m_funcWriteHandler, bytesTransferred );						
+			ON_CALLBACK_PARAM( m_funcSendHandler, bytesTransferred );						
 
 			m_isSending = false;
-			doSend();
+			processSend();
 		}
 	}
 
@@ -212,7 +218,7 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d err:%s", err.value(), err.message().c_str() ) );
+			XAsioLog::getInstance()->writeLog( "session:%d,code:%d err:%s", m_dwSessionId, err.value(), err.message().c_str() );
 		}
 		ON_CALLBACK_PARAM( m_funcCloseHandler, getSessionId() );
 	}

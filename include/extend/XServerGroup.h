@@ -11,14 +11,19 @@ namespace XGAME
 	//应用服务器类型
 	enum enAppServerType
 	{
+		//网关服务器，用于客户端连接
 		EN_APPSERVER_GATE,
 		
+		//中心服务器，用于服务器分布
 		EN_APPSERVER_CENTER,
 
+		//世界服务器，用于游戏逻辑玩法
 		EN_APPSERVER_WORLD,
 
+		//数据库服务器，用于数据存取
 		EN_APPSERVER_DB,
 
+		//日志服务器，用于查询日志
 		EN_APPSERVER_LOG,
 
 		EN_APPSERVER_COUNT,
@@ -37,7 +42,8 @@ namespace XGAME
 	};
 
 	/**
-	 * 服务器端点
+	 * 服务器端点信息
+	 * 包含IP及端口，服务器类型
 	 */
 	struct XGAME_API stAppServerEndPoint
 	{
@@ -51,6 +57,7 @@ namespace XGAME
 
 	/**
 	 * 应用服务器配置
+	 * 自动化服务器启动时需要配置的数据内容,包含本身监听端口及需要连接的服务器
 	 */
 	struct XGAME_API stAppServerConfig
 	{
@@ -92,7 +99,7 @@ namespace XGAME
 	class XGAME_API XAppConnector : public XClient
 	{
 	public:
-		XAppConnector( XAsioService& service );
+		XAppConnector( XAsioServiceController& controller );
 		~XAppConnector();
 
 		/**
@@ -133,7 +140,7 @@ namespace XGAME
 		virtual void	onReconnectCallback();
 
 	private:
-		XAsioService&			m_ioService;
+		XAsioServiceController&	m_controller;
 		
 		enAppServerType			m_serverType;
 		std::string				m_serverName;
@@ -158,12 +165,14 @@ namespace XGAME
 
 		int		getAppServerCnt();
 
+		int		getClientCnt();
+
 		XServer*	getServer();
 
 		/**
 		 * 设置io_service
 		 */
-		void	setIoService( boost::shared_ptr<class XAsioService>& ioService );
+		void	setIoService( boost::shared_ptr<class XAsioServiceController>& ioService );
 
 		/**
 		 * 查询服务器信息
@@ -253,7 +262,7 @@ namespace XGAME
 		virtual void	onProcessEchoPacket( XAsioRecvPacket& recv );
 
 	protected:
-		boost::shared_ptr<class XAsioService>	m_ptrService;//		m_service;
+		boost::shared_ptr<class XAsioServiceController>	m_ptrService;//		m_service;
 		XServerPtr			m_ptrServer;
 
 		bool				m_bConfigLoaded;
@@ -275,6 +284,9 @@ namespace XGAME
 		static std::string	m_sAppServerName[EN_APPSERVER_COUNT];
 	};
 
+	/**
+	 * 网关服务器
+	 */
 	class XGAME_API XGateServer : public XAppServer
 	{
 	public:
@@ -284,6 +296,9 @@ namespace XGAME
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
 	};
 
+	/**
+	 * 数据库服务器
+	 */
 	class XGAME_API XDBServer : public XAppServer
 	{
 	public:
@@ -291,8 +306,13 @@ namespace XGAME
 
 	protected:
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
+
+		int		m_iCounter;
 	};
 
+	/**
+	 * 中心服务器
+	 */
 	class XGAME_API XCenterServer : public XAppServer
 	{
 	public:
@@ -302,6 +322,9 @@ namespace XGAME
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
 	};
 
+	/**
+	 * 世界服务器
+	 */
 	class XGAME_API XWorldServer : public XAppServer
 	{
 	public:
@@ -311,6 +334,9 @@ namespace XGAME
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
 	};
 
+	/**
+	 * 日志服务器
+	 */
 	class XGAME_API XLogServer : public XAppServer
 	{
 	public:
@@ -320,11 +346,14 @@ namespace XGAME
 		virtual void	onProcessMsgPacket( XAsioRecvPacket& recv );
 	};
 
+	/**
+	 * 测试用前端
+	 */
 	class XTestClientPool;
 	class XGAME_API XTestClient : public XClient
 	{
 	public:
-		XTestClient( XAsioService& io );
+		XTestClient( XAsioServiceController& controller );
 	};
 
 	typedef boost::shared_ptr<class XTestClient>	XTestClientPtr;
@@ -391,7 +420,7 @@ namespace XGAME
 		void	onClientClose( unsigned int );
 
 	protected:
-		XAsioService	m_ioService;
+		XAsioServiceController	m_controller;
 
 		std::string		m_ip;
 		int				m_port;

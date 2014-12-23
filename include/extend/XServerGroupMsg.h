@@ -1,3 +1,7 @@
+/**
+ *	消息定义
+ *
+ */
 #pragma once
 
 namespace XGAME

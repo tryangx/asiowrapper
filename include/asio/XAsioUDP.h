@@ -23,18 +23,12 @@ namespace XGAME
 	class XGAME_API XAsioUDPSession : public XAsioSession, public boost::enable_shared_from_this<XAsioUDPSession>
 	{
 	public:
-		static UdpSessionPtr	create( XAsioService& io );
-
-	public:
-		XAsioUDPSession( XAsioService& service );
+		XAsioUDPSession( XAsioServiceController& controller );
 		~XAsioUDPSession();
 
-		virtual void		init();
-		virtual void		release();
-
-		virtual void		read();
-		virtual void		read( size_t bufferSize );
-		virtual void		write( XAsioBuffer& buffer );
+		virtual void		recv();
+		virtual void		recv( size_t bufferSize );
+		virtual void		send( XAsioBuffer& buffer );
 
 		const UdpSocketPtr&	getSocket() const;
 
@@ -44,9 +38,6 @@ namespace XGAME
 	
 	class XGAME_API XAsioUDPClient : public XAsioClientInterface, public boost::enable_shared_from_this<XAsioUDPClient>
 	{
-	public:
-		static UdpClientPtr	create( XAsioService& io );
-
 	public:
 		~XAsioUDPClient();
 
@@ -61,7 +52,7 @@ namespace XGAME
 		void			setConnectHandler( const std::function< void( UdpSessionPtr ) >& eventHandler );
 
 	protected:
-		XAsioUDPClient( XAsioService& io );
+		XAsioUDPClient( XAsioServiceController& controller );
 
 		virtual void	onResolveCallback( const boost::system::error_code& err, udp::resolver::iterator it );
 		virtual void	onConnectCallback( UdpSessionPtr session, const boost::system::error_code& err );
@@ -75,24 +66,18 @@ namespace XGAME
 	class XGAME_API XAsioUDPServer : public XAsioServerInterface, public boost::enable_shared_from_this<XAsioUDPServer>
 	{
 	public:
-		static UdpServerPtr	create( XAsioService& io );
-
-	public:
 		~XAsioUDPServer();
 
 		virtual void		init();
 		virtual void		release();
 
 	public:
-		template< typename HANDLER, typename OBJECT >
-		inline void		setAcceptHandler( HANDLER eventHandler, OBJECT* eventHandlerObject ) { setAcceptHandler( std::bind( eventHandler, eventHandlerObject, std::placeholders::_1 ) ); }
-
 		void			setAcceptHandler( const std::function<void( UdpSessionPtr )>& eventHandler );
 
 		virtual void	startAccept( int threadNum, uint16_t port );
 
 	protected:
-		XAsioUDPServer( XAsioService& io );
+		XAsioUDPServer( XAsioServiceController& controller );
 
 		UdpSessionPtr	m_ptrSession;
 

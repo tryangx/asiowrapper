@@ -5,13 +5,15 @@
 
 namespace XGAME
 {
+	//默认的连接超时判定时间
 #define DEFAULT_CONNECT_TIMEOUT_MS			10000
 
+	//默认的超时断开判定时间
 #define DEFAULT_DISCONNECT_TIMEOUT_MS		6000
 	
-	XClient::XClient( XAsioService& io ) : m_service( io ),
-		m_iPort( 6580 ), m_bInit( false ), m_bIsConnected( false ), m_iClientId( 0 ),
-		m_timer( m_service.getIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr ),
+	XClient::XClient( XAsioServiceController& controller ) : m_controller( controller ),
+		m_iPort( DEFAULT_PORT ), m_bIsConnected( false ), m_bTimeoutDisconnect( false ), m_dwClientId( 0 ),
+		m_timer( controller.getAsioIOService() ), m_ptrTCPClient( nullptr ), m_ptrSession( nullptr ),
 		m_bReadHeader( false ), m_bTestEcho( false )
 	{
 	}
@@ -19,21 +21,27 @@ namespace XGAME
 	XClient::~XClient()
 	{
 		disconnect();
-		release();
 		
-		m_funcCloseHandler		=	nullptr;
-		m_funcRecvHandler		=	nullptr;
-		m_funcConnectHandler	=	nullptr;
-		m_funcLogHandler		=	nullptr;
+		if ( m_ptrSession )
+		{
+			m_ptrSession->release();			
+		}
+		m_bIsConnected = false;
 	}
 
-	TcpClientPtr XClient::getServicePtr() { return m_ptrTCPClient; }
-	XAsioTCPClient*	XClient::getService() { return m_ptrTCPClient ? m_ptrTCPClient.get() : NULL; }
-
-	unsigned int XClient::getClientId() const { return m_iClientId; }
-	void XClient::setClientId( unsigned int id )
+	XAsioTCPClient*	XClient::getService()
 	{
-		m_iClientId = id;
+		return m_ptrTCPClient ? m_ptrTCPClient.get() : NULL;
+	}
+
+	unsigned long XClient::getClientId() const
+	{
+		return m_dwClientId;
+	}
+
+	void XClient::setClientId( unsigned long id )
+	{
+		m_dwClientId = id;
 		if ( m_ptrTCPClient )
 		{
 			m_ptrTCPClient->setServiceId( id );
@@ -45,21 +53,22 @@ namespace XGAME
 		return m_bIsConnected;
 	}
 	
+	void XClient::setTimeoutDisconnect( bool enable )
+	{
+		m_bTimeoutDisconnect = enable;
+	}
+
 	void XClient::setConnectHandler( std::function<void( XClient* )> handler )
 	{
 		m_funcConnectHandler = handler;
 	}
-	void XClient::setCloseHandler( std::function<void( size_t )> handler )
+	void XClient::setCloseHandler( std::function<void( unsigned long )> handler )
 	{
 		m_funcCloseHandler = handler;
 	}
 	void XClient::setRecvHandler( std::function<void( XClient*, XAsioRecvPacket& )> handler )
 	{
 		m_funcRecvHandler = handler;
-	}
-	void XClient::setLogHandler( std::function<void( const char* )> handler )
-	{
-		m_funcLogHandler = handler;
 	}
 	const char*	XClient::getIp() const
 	{
@@ -87,29 +96,17 @@ namespace XGAME
 			onLog( "Client is already connected!" );
 			return false;
 		}
-		m_bInit = true;
 		m_ptrTCPClient.reset();
-		m_ptrTCPClient = XAsioTCPClient::create( m_service );
+		m_ptrTCPClient = TcpClientPtr( new XAsioTCPClient( m_controller ) );
 		m_ptrTCPClient->setConnectHandler( std::bind( &XClient::onConnect, this, std::placeholders::_1 ) );
-		m_ptrTCPClient->setResolveHandler( std::bind( &XClient::onResolve, this ) );
-		m_ptrTCPClient->setLogHandler( std::bind( &XClient::onLog, this, std::placeholders::_1 ) );
 		m_ptrTCPClient->connect( m_sHost, m_iPort );
-		setClientId( m_iClientId );
+		setClientId( m_dwClientId );
 		
 		m_timer.expires_from_now( posix_time::millisec( DEFAULT_CONNECT_TIMEOUT_MS ) );
 		m_timer.async_wait( boost::bind( &XClient::onConnTimeoutCallback, this, boost::asio::placeholders::error ) );
 
 		m_bReadHeader = false;
 		return true;
-	}
-
-	void XClient::release()
-	{
-		if ( m_ptrSession )
-		{
-			m_ptrSession->release();			
-		}
-		m_bIsConnected = false;
 	}
 
 	void XClient::disconnect()
@@ -134,7 +131,7 @@ namespace XGAME
 		}
 		if ( m_ptrSession && m_ptrSession->isOpen() )
 		{
-			m_ptrSession->write( buff );
+			m_ptrSession->send( buff );
 		}
 	}
 
@@ -146,29 +143,29 @@ namespace XGAME
 		}
 		if ( m_bTestEcho )
 		{
-			m_ptrSession->read( XAsioPacketHeader::getHeaderSize() );
+			m_ptrSession->recv( XAsioPacketHeader::getHeaderSize() );
 		}
 		else
 		{
 			if ( m_recvPacket.isEmpty() )
 			{
-				m_ptrSession->read( XAsioPacketHeader::getHeaderSize() );
+				m_ptrSession->recv( XAsioPacketHeader::getHeaderSize() );
 			}
 			else if ( m_recvPacket.getHeader() )
 			{
-				m_ptrSession->read( m_recvPacket.getHeader()->m_dwSize );
+				m_ptrSession->recv( m_recvPacket.getHeader()->m_dwSize );
 			}
 		}
-//		m_timer.expires_from_now( posix_time::millisec( DEFAULT_CONNECT_TIMEOUT_MS ) );
-//		m_timer.async_wait( boost::bind( &XClient::onDisconnTimeCallback, this, boost::asio::placeholders::error ) );
+
+		if ( m_bTimeoutDisconnect )
+		{
+			m_timer.expires_from_now( posix_time::millisec( DEFAULT_DISCONNECT_TIMEOUT_MS ) );
+			m_timer.async_wait( boost::bind( &XClient::onDisconnTimeCallback, this, boost::asio::placeholders::error ) );
+		}
 	}
 
 	void XClient::onConnect( TcpSessionPtr session )
 	{
-		if ( !m_bInit )
-		{
-			return;
-		}
 		if ( session == nullptr )
 		{
 			onLog( "cann't connect to server" );
@@ -180,11 +177,10 @@ namespace XGAME
 		m_bIsConnected = true;
 		
 		m_ptrSession = session;
-		m_ptrSession->setSessionId( m_iClientId );
-		m_ptrSession->setReadHandler( std::bind( &XClient::onRecv, this, std::placeholders::_1 ) );
-		m_ptrSession->setWriteHandler( std::bind( &XClient::onSend, this, std::placeholders::_1 ) );
+		m_ptrSession->setSessionId( m_dwClientId );
+		m_ptrSession->setRecvHandler( std::bind( &XClient::onRecv, this, std::placeholders::_1 ) );
+		m_ptrSession->setSendHandler( std::bind( &XClient::onSend, this, std::placeholders::_1 ) );
 		m_ptrSession->setCloseHandler( std::bind( &XClient::onClose, this, std::placeholders::_1 ) );
-		m_ptrSession->setLogHandler( std::bind( &XClient::onLog, this, std::placeholders::_1 ) );
 
 		recv();
 
@@ -213,41 +209,30 @@ namespace XGAME
 		XAsioStatClientAgent::getMutableInstance()->send( bytesTransferred );
 	}
 
-	void XClient::onResolve()
-	{
-	}
-
 	void XClient::onClose( size_t id )
 	{
 		m_bIsConnected = false;
-		ON_CALLBACK_PARAM( m_funcCloseHandler, m_iClientId );		
+		ON_CALLBACK_PARAM( m_funcCloseHandler, m_dwClientId );		
 	}
 	
 	void XClient::onLog( const char* pLog )
 	{
-		std::string log = pLog;
-		ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", m_iClientId, log.c_str() ) );
+		XAsioLog::getInstance()->writeLog( "[%d]%s", m_dwClientId, pLog );
 	}
 	
 	void XClient::onConnTimeoutCallback( const boost::system::error_code& err )
 	{
-		if ( !m_bIsConnected )
+		if ( !m_bIsConnected && !err )
 		{
-			if ( !err )
-			{
-				ON_CALLBACK_PARAM( m_funcConnectHandler, NULL );
-			}
+			ON_CALLBACK_PARAM( m_funcConnectHandler, NULL );
 		}
 	}
 
 	void XClient::onDisconnTimeCallback( const boost::system::error_code& err )
 	{
-		if ( m_bIsConnected )
+		if ( m_bIsConnected && !err )
 		{
-			if ( !err )
-			{
-				ON_CALLBACK_PARAM( m_funcCloseHandler, NULL );
-			}
+			ON_CALLBACK_PARAM( m_funcCloseHandler, NULL );
 		}
 	}
 

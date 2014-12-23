@@ -6,7 +6,6 @@ namespace XGAME
 {
 	XAsioStat::XAsioStat()
 	{
-		memset( m_szText, 0, sizeof(m_szText) );
 		reset();
 	}
 
@@ -82,9 +81,4 @@ namespace XGAME
 	size_t XAsioStat::getTotalSendTime() { return m_iTotalSendTimes; }
 	size_t XAsioStat::getPeriodRecvTime() { return m_iPeriodRecvTimes; }
 	size_t XAsioStat::getPeriodSendTime() { return m_iPeriodSendTimes; }
-
-	const char* XAsioStat::outputLog()
-	{
-		return m_szText;
-	}
 }

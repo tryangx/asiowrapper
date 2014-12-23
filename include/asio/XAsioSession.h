@@ -9,16 +9,6 @@
 
 namespace XGAME
 {
-	//是否使用固定的接收缓存
-	//开启后将会使用预分配的缓存接收数据，避免内存碎片
-	//如果接收消息超过MAX_MSG_LEN长度时，仍将临时分配内存以接收
-#define USE_RECV_BUFFER
-
-	//最大缓存消息数量
-#ifndef MAX_BUFFER_NUM
-#define MAX_BUFFER_NUM				1024
-#endif
-
 	/**
 	 * 会话接口声明
 	 */
@@ -30,23 +20,23 @@ namespace XGAME
 		/**
 		 * 获取连接的序列ID
 		 */
-		unsigned int	getSessionId() const;
+		unsigned long	getSessionId() const;
 
 		/**
 		 * 设置连接的序列ID
 		 * 一般由相应的服务自动生成
 		 */
-		void			setSessionId( unsigned int id );
+		void			setSessionId( unsigned long id );
 		
 		/**
 		 * 接收
 		 */
-		virtual void	read() = 0;
+		virtual void	recv() = 0;
 
 		/**
 		 * 发送
 		 */
-		virtual void	write( XAsioBuffer& buffer ) = 0;	
+		virtual void	send( XAsioBuffer& buffer ) = 0;	
 		
 		/**
 		 * 释放,删除会话相关的回调
@@ -54,43 +44,80 @@ namespace XGAME
 		virtual void	release();
 
 	public:
-		void			setReadHandler( std::function<void( XAsioBuffer& )> handler );		
-		void			setWriteHandler( std::function<void( size_t )> handler );
-		void			setLogHandler( std::function<void( const char* )> handler );
+		/**
+		 * 设置接收消息的回调
+		 */
+		void			setRecvHandler( std::function<void( XAsioBuffer& )> handler );		
+
+		/**
+		 * 设置发送消息的回调
+		 */
+		void			setSendHandler( std::function<void( size_t )> handler );
+
+		/**
+		 * 设置关闭时的回调
+		 */
 		void			setCloseHandler( std::function<void( size_t )> handler );
 
 	protected:
-		XAsioSession( XAsioService& service );
+		XAsioSession( XAsioServiceController& controller );
 
+		/**
+		 * 重置状态
+		 */
 		void	resetState();
+
+		/**
+		 * 清空缓存
+		 */
 		void	clearBuffers();
 
 		/**
 		 * 收到数据的响应
 		 */
-		virtual void	onReadCallback( const boost::system::error_code& err, size_t bytesTransferred );
+		virtual void	onRecvCallback( const boost::system::error_code& err, size_t bytesTransferred );
 
 		/**
 		 * 发送数据的响应
 		 */
-		virtual void	onWriteCallback( const boost::system::error_code& err, size_t bytesTransferred );
+		virtual void	onSendCallback( const boost::system::error_code& err, size_t bytesTransferred );
 
 	protected:
-		XAsioService&						m_service;
+		/**
+		 * 服务控制器
+		 */
+		XAsioServiceController&				m_controller;
+		/**
+		 * ASIO接口，用于支持池模式
+		 */
 		boost::asio::io_service&			m_ioService;
 		boost::asio::strand					m_strand;		
 
 		/**
 		 * 会话编号，作为键值
 		 */
-		unsigned int						m_sessionId;
+		unsigned long						m_dwSessionId;
 		
-		char								m_readBuffer[MAX_PACKET_SIZE];
+		/**
+		 * 接收缓存
+		 */
+		char								m_recvBuffer[MAX_PACKET_SIZE];
+		/**
+		 * 发送缓存
+		 */
 		char								m_sendBuffer[MAX_PACKET_SIZE];
 
-		std::function<void( XAsioBuffer& )>	m_funcReadHandler;
-		std::function<void( size_t )>		m_funcWriteHandler;
+		/**
+		 * 接收的回调函数
+		 */
+		std::function<void( XAsioBuffer& )>	m_funcRecvHandler;
+		/**
+		 * 读取的回调函数
+		 */
+		std::function<void( size_t )>		m_funcSendHandler;
+		/**
+		 * 关闭的回调函数
+		 */
 		std::function<void( size_t )>		m_funcCloseHandler;
-		std::function<void( const char* )>	m_funcLogHandler;		
 	};
 }

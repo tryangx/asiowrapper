@@ -5,6 +5,8 @@
 
 namespace XGAME
 {
+#define CLIENT_START_ID						100000
+
 /**
  * 服务的线程数量
  */
@@ -22,24 +24,20 @@ namespace XGAME
 
 	//---------------------------
 	// 服务会话
-	TCPSrvSessionPtr XAsioTCPSrvSession::create( TcpSessionPtr ptr ) { return TCPSrvSessionPtr( new XAsioTCPSrvSession( ptr ) )->shared_from_this(); }
-
 	XAsioTCPSrvSession::XAsioTCPSrvSession() : 
 		m_ptrSession( nullptr ), m_bIsStarted( false ),
-		m_funcRecvHandler( nullptr ), m_funcLogHandler( nullptr ), m_pStat( NULL )
+		m_funcRecvHandler( nullptr ), m_pStat( NULL )
 	{
 	}
 
 	XAsioTCPSrvSession::XAsioTCPSrvSession( TcpSessionPtr ptr ) : 
 		m_ptrSession( ptr ), m_bIsStarted( false ),
-		m_funcRecvHandler( nullptr ), m_funcLogHandler( nullptr ), m_pStat( NULL )
+		m_funcRecvHandler( nullptr ), m_pStat( NULL )
 	{
 	}
 
 	XAsioTCPSrvSession::~XAsioTCPSrvSession()
 	{
-		m_funcLogHandler	= nullptr;
-		m_funcRecvHandler	= nullptr;
 	}
 
 	bool XAsioTCPSrvSession::isStarted()
@@ -68,9 +66,8 @@ namespace XGAME
 		{
 			m_ptrSession = ptr->shared_from_this();
 		}
-		m_ptrSession->setLogHandler( std::bind( &XAsioTCPSrvSession::onLog, this, std::placeholders::_1 ) );
-		m_ptrSession->setWriteHandler( std::bind( &XAsioTCPSrvSession::onWrite, this, std::placeholders::_1 ) );
-		m_ptrSession->setReadHandler( std::bind( &XAsioTCPSrvSession::onRecv, this, std::placeholders::_1 ) );
+		m_ptrSession->setSendHandler( std::bind( &XAsioTCPSrvSession::onWrite, this, std::placeholders::_1 ) );
+		m_ptrSession->setRecvHandler( std::bind( &XAsioTCPSrvSession::onRecv, this, std::placeholders::_1 ) );
 
 		recv();
 
@@ -89,7 +86,7 @@ namespace XGAME
 	{
 		if ( m_ptrSession && m_ptrSession->isOpen() )
 		{
-			m_ptrSession->write( buff );
+			m_ptrSession->send( buff );
 		}
 	}
 
@@ -114,11 +111,11 @@ namespace XGAME
 		}
 		if ( m_recvPacket.isEmpty() )
 		{
-			m_ptrSession->read( XAsioPacketHeader::getHeaderSize() );
+			m_ptrSession->recv( XAsioPacketHeader::getHeaderSize() );
 		}
 		else if ( m_recvPacket.getHeader() )
 		{
-			m_ptrSession->read( m_recvPacket.getHeader()->m_dwSize );
+			m_ptrSession->recv( m_recvPacket.getHeader()->m_dwSize );
 		}
 	}
 
@@ -154,10 +151,6 @@ namespace XGAME
 		m_ptrSession->close();
 	}
 
-	void XAsioTCPSrvSession::setLogHandler( std::function<void( const char* )> handler )
-	{
-		m_funcLogHandler = handler;
-	}
 	void XAsioTCPSrvSession::setRecvHandler( std::function<void( XAsioTCPSrvSession*, XAsioRecvPacket& )> handler )
 	{
 		m_funcRecvHandler = handler;
@@ -166,38 +159,42 @@ namespace XGAME
 	void XAsioTCPSrvSession::onLog( const char* pLog )
 	{
 		std::string s = pLog;
-		ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "[%d]%s", m_ptrSession ? m_ptrSession->getSessionId() : -1, s.c_str() ) );
+		XAsioLog::getInstance()->writeLog( "[%d]%s", m_ptrSession ? m_ptrSession->getSessionId() : -1, s.c_str() );
 	}
 
 	//---------------------------
 	// 服务
 
-	XServer::XServer( XAsioService& service ) 
-		: m_service( service ), //XAsioPool( service.getIOService() ),
+	XServer::XServer( XAsioServiceController& controller ) 
+		: m_controller( controller ), //XAsioPool( service.getIOService() ),
 		m_iAllocateId( CLIENT_START_ID ), m_bIsStarted( false ), m_iPort( 6580 ),
 		m_iAcceptThreadNum( DEFAULT_ACCEPT_THREAD_NUM ),
-		m_funcLogHandler( nullptr ), m_ptrTCPServer( nullptr ), m_timerUpdateTimer( service.getIOService() )
+		m_ptrTCPServer( nullptr ), m_timerUpdateTimer( controller.getAsioIOService() )
 	{
 		//allocateObject( 1 );
 	}
 
 	XServer::~XServer()
 	{
-		m_funcLogHandler	=	nullptr;
 		m_funcAcceptHandler	=	nullptr;
 		stopServer();
 	}
 
-	TcpServerPtr XServer::getService() { return m_ptrTCPServer; }
-
-	XAsioStat* XServer::getStat() { return &m_stat; }
-
-	bool XServer::isStarted() { return m_bIsStarted; }
-
-	void XServer::setLogHandler( std::function<void( const char* )> handler )
+	TcpServerPtr XServer::getService()
 	{
-		m_funcLogHandler = handler;
+		return m_ptrTCPServer;
 	}
+
+	XAsioStat* XServer::getStat()
+	{
+		return &m_stat;
+	}
+
+	bool XServer::isStarted()
+	{
+		return m_bIsStarted;
+	}
+
 	void XServer::setConnectHandler( std::function<void( XAsioTCPSrvSession* )> handler )
 	{
 		m_funcAcceptHandler = handler;
@@ -223,9 +220,15 @@ namespace XGAME
 		}
 	}
 	
-	void XServer::setAddress( int port ) { m_iPort = port; }
+	void XServer::setAddress( int port )
+	{
+		m_iPort = port;
+	}
 
-	void XServer::setAcceptThreadNum( int threadNum ) { m_iAcceptThreadNum = threadNum; }
+	void XServer::setAcceptThreadNum( int threadNum )
+	{
+		m_iAcceptThreadNum = threadNum;
+	}
 
 	unsigned int XServer::queryValidId()
 	{
@@ -245,10 +248,9 @@ namespace XGAME
 		m_bIsStarted = true;
 		
 		m_ptrTCPServer.reset();
-		m_ptrTCPServer = XAsioTCPServer::create( m_service );
+		m_ptrTCPServer = TcpServerPtr( new XAsioTCPServer( m_controller ) );
 		m_ptrTCPServer->setAcceptHandler( std::bind( &XServer::onAccept, this, std::placeholders::_1 ) );
 		m_ptrTCPServer->setCancelHandler( std::bind( &XServer::onCancel, this ) );
-		m_ptrTCPServer->setLogHandler( std::bind( &XServer::onLog, this, std::placeholders::_1 ) );		
 		m_ptrTCPServer->startAccept( m_iAcceptThreadNum, m_iPort );
 		
 		m_timerUpdateTimer.expires_from_now( posix_time::millisec( 5000 ) );
@@ -266,7 +268,6 @@ namespace XGAME
 		mutex::scoped_lock lock( m_sessionMutex );
 		
 		m_bIsStarted = false;
-		m_ptrTCPServer->release();
 		m_ptrTCPServer->stopAccept();
 		
 		m_timerUpdateTimer.cancel();
@@ -370,7 +371,6 @@ namespace XGAME
 		TCPSrvSessionPtr ptr = TCPSrvSessionPtr( createSession() );
 		ptr->setStat( &m_stat );
 		ptr->init( session );
-		ptr->setLogHandler( std::bind( &XServer::onLog, this, std::placeholders::_1 ) );
 		ptr->setRecvHandler( std::bind( &XServer::onSessionRecv, this, std::placeholders::_1, std::placeholders::_2 ) );
 		m_mapSession.insert( std::make_pair( session->getSessionId(), ptr ) );
 
@@ -408,12 +408,12 @@ namespace XGAME
 		packet.setFromId( pSession->getSessionId() );
 		m_listRecvPackets.push_back( packet );
 		lock.unlock();
-		ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "recv packet from %d", pSession->getSessionId() ) );
+//		XAsioLog::getInstance()->writeLog( "recv packet from %d", pSession->getSessionId() );
 	}
 
 	void XServer::onLog( const char* pLog )
 	{
-		ON_CALLBACK_PARAM( m_funcLogHandler, pLog );
+		XAsioLog::getInstance()->writeLog( pLog );
 	}
 
 	void XServer::onTimerUpdateCallback( const boost::system::error_code& err )

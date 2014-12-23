@@ -5,23 +5,15 @@ namespace XGAME
 {
 	//--------------------------------
 	//TCP·þÎñÆ÷¿ØÖÆ
-	TcpServerPtr XAsioTCPServer::create( XAsioService& io )
-	{
-		return TcpServerPtr( new XAsioTCPServer( io ) )->shared_from_this();
-	}
-
-	XAsioTCPServer::XAsioTCPServer( XAsioService& io )
-		: XAsioServerInterface( io ), m_funcAcceptHandler( nullptr ), m_funcCancelHandler( nullptr ),
+	XAsioTCPServer::XAsioTCPServer( XAsioServiceController& controller )
+		: XAsioServerInterface( controller ), m_funcAcceptHandler( nullptr ), m_funcCancelHandler( nullptr ),
 		m_acceptor( nullptr )
 	{
 	}
 
 	XAsioTCPServer::~XAsioTCPServer()
 	{
-		m_funcAcceptHandler = nullptr;
-		m_funcCancelHandler	= nullptr;
-
-		m_service.removeService( this );
+		m_controller.removeService( this );
 
 		stopAccept();
 	}
@@ -29,10 +21,6 @@ namespace XGAME
 	const TcpAcceptorPtr XAsioTCPServer::getAcceptor() const
 	{
 		return m_acceptor;
-	}
-
-	void XAsioTCPServer::init()
-	{
 	}
 
 	void XAsioTCPServer::setAcceptHandler( std::function<void( TcpSessionPtr )> handler )
@@ -44,16 +32,12 @@ namespace XGAME
 		m_funcCancelHandler = handler;
 	}
 
-	void XAsioTCPServer::release()
-	{
-	}
-
 	TcpSessionPtr XAsioTCPServer::createTCPSession()
 	{
-		return TcpSessionPtr( new XAsioTCPSession( m_service ) );
+		return TcpSessionPtr( new XAsioTCPSession( m_controller ) );
 	}
 
-	void XAsioTCPServer::startAccept( int threadNum, uint16_t port )
+	void XAsioTCPServer::startAccept( int threadNum, unsigned short port )
 	{
 		if ( m_acceptor == nullptr )
 		{
@@ -61,16 +45,28 @@ namespace XGAME
 		}
 		for ( int i = 0; i < threadNum; i++ )
 		{
-			startAccept();
+			processAccept();
 		}
 	}
 
-	void XAsioTCPServer::startAccept()
+	void XAsioTCPServer::startAccept( unsigned short port )
 	{
-		TcpSessionPtr session = createTCPSession();
-		m_acceptor->async_accept( *session->getSocket(), 
-			m_strand.wrap( boost::bind( &XAsioTCPServer::onAcceptCallback, shared_from_this(), 
-			session, boost::asio::placeholders::error ) ));
+		if ( m_acceptor == nullptr )
+		{
+			m_acceptor = TcpAcceptorPtr( new tcp::acceptor( m_ioService, tcp::endpoint( tcp::v4(), port ) ) );
+		}
+		processAccept();
+	}
+	
+	void XAsioTCPServer::processAccept()
+	{
+		if ( m_acceptor )
+		{
+			TcpSessionPtr session = createTCPSession();
+			m_acceptor->async_accept( *session->getSocket(), 
+				m_strand.wrap( boost::bind( &XAsioTCPServer::onAcceptCallback, shared_from_this(), 
+				session, boost::asio::placeholders::error ) ));
+		}		
 	}
 
 	void XAsioTCPServer::stopAccept()
@@ -83,7 +79,7 @@ namespace XGAME
 			m_acceptor.reset();
 			if ( err )
 			{
-				ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+				XAsioLog::getInstance()->writeLog( "service:%d,code:%d,%s", m_dwServiceId, err.value(), err.message().c_str() );
 			}
 			else
 			{
@@ -96,18 +92,18 @@ namespace XGAME
 	{
 		if ( err )
 		{
-			if ( m_service.getService( m_iServiceId ) )
+			if ( m_controller.getService( m_dwServiceId ) )
 			{
 				if ( m_acceptor && m_acceptor->is_open() )
 				{
-					ON_CALLBACK_PARAM( m_funcLogHandler, outputString( "code:%d %s", err.value(), err.message().c_str() ) );
+					XAsioLog::getInstance()->writeLog( "service:%d,code:%d,%s", m_dwServiceId, err.value(), err.message().c_str() );
 				}
 			}
 		}
 		else
 		{
 			ON_CALLBACK_PARAM( m_funcAcceptHandler, session );
-			startAccept();
+			processAccept();
 		}
 	}
 }

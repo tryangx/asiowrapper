@@ -53,16 +53,38 @@ namespace XGAME
 		 */
 		void			update();
 
+		/**
+		 * 接收数据总大小
+		 */
 		size_t			getTotalRecvSize();
+		/**
+		 * 发送数据总大小
+		 */
 		size_t			getTotalSendSize();
+		/**
+		 * 单位时间内接收数据大小
+		 */
 		size_t			getPeriodRecvSize();
+		/**
+		 * 单位时间内发送数据大小
+		 */
 		size_t			getPeriodSendSize();
+		/**
+		 * 接收数据次数
+		 */
 		size_t			getTotalRecvTime();
+		/**
+		 * 发送数据次数
+		 */
 		size_t			getTotalSendTime();
+		/**
+		 * 单位时间内接收数据次数
+		 */
 		size_t			getPeriodRecvTime();
+		/**
+		 * 单位时间内发送数据次数
+		 */
 		size_t			getPeriodSendTime();
-
-		const char*		outputLog();
 
 	private:
 		//开始时间
@@ -97,7 +119,5 @@ namespace XGAME
 		size_t			m_iPeriodSendSize;
 		//单位时间内发送内容次数
 		size_t			m_iPeriodSendTimes;
-
-		char			m_szText[STAT_LOG_LENGTH];
 	};
 }

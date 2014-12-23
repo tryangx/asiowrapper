@@ -5,8 +5,6 @@ namespace XGAME
 {
 #define DEFAULT_THREAD		1
 
-#define DEFAULT_PORT		8000
-
 	stAppServerEndPoint::stAppServerEndPoint() : _ip( NULL ), _port( 0 ), _type( EN_APPSERVER_COUNT ) {}
 	stAppServerEndPoint::stAppServerEndPoint( const char* ip, short port, enAppServerType type ) : _ip( ip ), _port( port ), _type( type ) {}
 	
@@ -80,7 +78,7 @@ namespace XGAME
 
 	//--------Connector Server
 
-	XAppConnector::XAppConnector( XAsioService& service ) : m_ioService( service ), XClient( service ), m_serverType( EN_APPSERVER_UNKNOW )
+	XAppConnector::XAppConnector( XAsioServiceController& controller ) : m_controller( controller ), XClient( controller ), m_serverType( EN_APPSERVER_UNKNOW )
 	{
 	}
 
@@ -92,7 +90,7 @@ namespace XGAME
 		}
 		if ( getService() )
 		{
-			m_ioService.removeService( getService() );
+			m_controller.removeService( getService() );
 		}
 	}
 
@@ -143,7 +141,7 @@ namespace XGAME
 			{
 				m_ptrTCPClient->setReconnectHandler( std::bind( &XAppConnector::onReconnectCallback, this ) );
 			}
-			m_ioService.startService( getService(), 1 );
+			m_controller.startService( getService(), 1 );
 		}
 		return true;
 	}
@@ -212,12 +210,17 @@ namespace XGAME
 		return cnt;
 	}
 
+	int	XAppServer::getClientCnt()
+	{
+		return m_ptrServer ? m_ptrServer->getClientCount() : 0;
+	}
+
 	XServer* XAppServer::getServer()
 	{
 		return m_ptrServer.get();
 	}
 
-	void XAppServer::setIoService( boost::shared_ptr<class XAsioService>& ioService )
+	void XAppServer::setIoService( boost::shared_ptr<class XAsioServiceController>& ioService )
 	{
 		m_ptrService = ioService;
 	}
@@ -247,7 +250,7 @@ namespace XGAME
 		}
 		m_ptrServer.reset();
 		m_ptrServer = XServerPtr( new XServer( *m_ptrService.get() ) );
-		m_ptrServer->setLogHandler( std::bind( &XAppServer::onLog, this, std::placeholders::_1 ) );
+		//m_ptrServer->setLogHandler( std::bind( &XAppServer::onLog, this, std::placeholders::_1 ) );
 		m_ptrServer->setConnectHandler( std::bind( &XAppServer::onAccept, this, std::placeholders::_1 ) );
 		m_ptrServer->setAddress( m_serverConfig._listenPort );
 		m_ptrServer->setAcceptThreadNum( 1 );
@@ -275,7 +278,7 @@ namespace XGAME
 				pConn = getConnector( ep._type );
 				pConn->setConnectorId( ep._type );
 				pConn->setServerType( m_serverConfig._serverType, m_serverConfig._sName );
-				pConn->setLogHandler( std::bind( &XAppServer::onLog, this, std::placeholders::_1 ) );
+				//pConn->setLogHandler( std::bind( &XAppServer::onLog, this, std::placeholders::_1 ) );
 				pConn->setRecvHandler( std::bind( &XAppServer::onConnectorRecv, this, std::placeholders::_1, std::placeholders::_2 ) );
 			}
 			if ( !pConn->isConnected() )

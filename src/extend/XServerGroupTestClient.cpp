@@ -3,12 +3,12 @@
 
 namespace XGAME
 {
-	XTestClient::XTestClient( XAsioService& io ) : XClient( io )
+	XTestClient::XTestClient( XAsioServiceController& controller ) : XClient( controller )
 	{
 	}
 	
 	//-------test pool
-	XTestClientPool::XTestClientPool() : m_allocateId( CLIENT_START_ID ), m_maxLimited(0)
+	XTestClientPool::XTestClientPool() : m_allocateId( 0 ), m_maxLimited(0)
 	{
 		m_ip = "localhost";
 	}
@@ -25,7 +25,7 @@ namespace XGAME
 	void XTestClientPool::clear()
 	{
 		closeClient( -1 );
-		m_ioService.stopAllServices();
+		m_controller.stopAllServices();
 	}
 
 	void XTestClientPool::setAddress( const char* ip, int port )
@@ -75,13 +75,13 @@ namespace XGAME
 		mutex::scoped_lock lock( m_mutexMap );
 
 		m_allocateId++;
-		XTestClientPtr ptr = XTestClientPtr( new XTestClient( m_ioService ) );
+		XTestClientPtr ptr = XTestClientPtr( new XTestClient( m_controller ) );
 		ptr->setClientId( m_allocateId );
 		ptr->setAddress( m_ip, m_port );
 		ptr->connect();
 		ptr->setConnectHandler( std::bind( &XTestClientPool::onClientConnect, this, std::placeholders::_1 ) );
 		ptr->setCloseHandler( std::bind( &XTestClientPool::onClientClose, this, std::placeholders::_1 ) );
-		m_ioService.startService( ptr->getService(), 1 );
+		m_controller.startService( ptr->getService(), 1 );
 		m_mapClient.insert( std::make_pair( ptr->getClientId(), ptr ) );
 		return ptr->getClientId();
 	}
@@ -178,7 +178,7 @@ namespace XGAME
 			if ( ptr->isConnected() )
 			{
 				ptr->disconnect();
-				m_ioService.removeService( ptr->getService() );
+				m_controller.removeService( ptr->getService() );
 				m_mapTempClient.insert( std::make_pair( ptr->getClientId(), ptr ) );
 				m_mapClient.erase( it );
 			}

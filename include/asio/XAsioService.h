@@ -11,90 +11,161 @@
 
 #include "XApi.h"
 #include "XAsioBase.h"
+#include "XAsioLog.h"
 
 #include <boost/container/list.hpp>
+#include <boost/smart_ptr.hpp>
 #include <vector>
 
 namespace XGAME
 {
+#define DEFAULT_PORT					6805
+
 #define DEFAULT_POOL_SIZE				4
 
 //ASIO线程数量
 //用于监听，消息收发等
 #define XASIO_SERVICE_THREAD_NUM		4
 	
-	class XAsioService;
+	class XAsioServiceController;
+	
 	/**
 	 * ASIO底层接口声明
+	 * 基于asio的设计原理，每个client及server均视为一个服务，统一由XAsioServerController管理
 	 */
-	class XGAME_API XAsioInterface
+	class XGAME_API XAsioServiceInterface
 	{
 	protected:
-		XAsioInterface( XAsioService& service );
+		XAsioServiceInterface( XAsioServiceController& controller );
 	
 	public:
-		~XAsioInterface();
-				
-		//服务是否启动
+		~XAsioServiceInterface();
+		
+		/**
+		 * 获取服务器编号
+		 */
+		unsigned long		getServiceId() const;		
+		/**
+		 * 设置服务器编号
+		 */
+		void				setServiceId( unsigned long id );
+		/**
+		 * 服务是否启动
+		 */
 		bool				isStarted() const;
-		//启动服务
+		/**
+		 * 启动服务
+		 */
 		void				startService();
-		//停止服务
+		/**
+		 * 停止服务
+		 */
 		void				stopService();
 
-		unsigned int		getServiceId() const;
-		void				setServiceId( unsigned int id );
-
-		XAsioService&		getService();
-		const XAsioService& getService() const;
-		
 		/**
-		 * 启动服务的初始化
+		 * 得到服务控制器
 		 */
-		virtual void		init() = 0;
-		/**
-		 * 停止服务的初始化
-		 */
-		virtual void		release() = 0;
-		
-	public:
-		/**
-		 * 发生错误的响应
-		 * 函数原型为function( std::string, size_t )
-		 */
-		void		setLogHandler( std::function<void( const char* )> handler );
-		
+		XAsioServiceController&		getController();
+				
 	protected:	
-		XAsioService&				m_service;
+		XAsioServiceController&		m_controller;
 		boost::asio::io_service&	m_ioService;
 		boost::asio::strand			m_strand;
 		
 		/**
-		 * 服务ID，用于唯一标识
+		 * 服务的编号
 		 */
-		size_t						m_iServiceId;
+		unsigned long				m_dwServiceId;
+		/**
+		 * 服务是否已启动
+		 */
 		bool						m_bIsStarted;
+		/**
+		 * 服务是否关闭中
+		 */
 		bool						m_bIsClosing;
+	};
+		
+	/**
+	 * 客户端接口声明
+	 */
+	class XGAME_API XAsioClientInterface : public XAsioServiceInterface
+	{
+	protected:
+		XAsioClientInterface( XAsioServiceController& controller );
+	
+	public:
+		~XAsioClientInterface();
 
-		std::function<void( const char* )>		m_funcLogHandler;
+		/**
+		 * 连接到指定地址和端口
+		 * @param	host	连接的地址
+		 * @param	port	连接的端口
+		 */
+		virtual void	connect( const std::string& host, uint16_t port ) = 0;
+
+		/**
+		 * 连接到指定地址和协议
+		 * @param	host	连接的地址
+		 */
+		virtual void	connect( const std::string& host, const std::string& protocol ) = 0;
 	};
 
+	/**
+	 * 服务器接口声明
+	 */
+	class XGAME_API XAsioServerInterface : public XAsioServiceInterface
+	{
+	protected:
+		XAsioServerInterface( XAsioServiceController& controller );
+
+	public:
+		/**
+		 * 开始侦听连接
+		 * @param	threadNum	用于侦听的线程数量
+		 * @param	port		侦听的端口
+		 */
+		virtual void	startAccept( int threadNum, uint16_t port ) = 0;
+	};
+
+	/**
+	 * 服务池
+	 */
 	class XGAME_API XAsioServicePool
 	{
 	public:
 		XAsioServicePool();
 
 	public:
+		/**
+		 * 是否启动
+		 */
 		bool	isRunning() const;
 
+		/**
+		 * 初始化
+		 * @param	poolSize	池大小
+		 */
 		void	init( size_t poolSize );
 
+		/**
+		 * 启用池中的服务
+		 */
 		void	start();
 
+		/**
+		 * 停止池中的服务
+		 */
 		void	stop();
 
+		/**
+		 * 重置
+		 */
 		void	reset();
 
+		/**
+		 * 获取asio接口
+		 */
 		io_service&		getIOService();
 
 	protected:
@@ -109,90 +180,128 @@ namespace XGAME
 		size_t							m_index;
 	};
 
-	//ASIO服务器管理器
-	class XGAME_API XAsioService
+	/**
+	 * ASIO服务控制器
+	 */
+	class XGAME_API XAsioServiceController
 	{
 	protected:
-		typedef XAsioInterface*					SERVICE_TYPE;
-		typedef const SERVICE_TYPE				SERVICE_CTYPE;
-		typedef std::list<SERVICE_TYPE>			CONTAINER_TYPE;
-		//typedef container::list<SERVICE_TYPE>	CONTAINER_TYPE;
+		typedef XAsioServiceInterface*					SERVICE_OBJECT;
+		typedef const SERVICE_OBJECT					SERVICE_COBJECT;
+		typedef std::list<SERVICE_OBJECT>				SERVICE_CONTAINER;
+		typedef boost::shared_ptr<io_service::work>		IOWORK_PTR;
 
 	public:
-		XAsioService();
-		~XAsioService(void);
+		XAsioServiceController();
+		~XAsioServiceController(void);
 
 	public:
 		//------------------------------------------
 		// status
 
-		//is service started
+		/**
+		 * 服务管理器是否启动
+		 */
 		bool	isStarted() const;
 
+		/**
+		 * 服务管理器是否运行中
+		 */
 		bool	isRunning() const;
 
-		//------------------------------------------
-		//  manager
-		void	registerService( SERVICE_TYPE service );
+		/**
+		 * 注册服务
+		 */
+		void	registerService( SERVICE_OBJECT service );
 
-		//启动全部服务
+		/**
+		 * 启动全部服务
+		 */
 		void	startAllServices( int threadNum = XASIO_SERVICE_THREAD_NUM );
 		
+		/**
+		 * 启动全部服务
+		 */
 		//停止全部服务
 		void	stopAllServices();
 
+		/**
+		 * 启动全部服务
+		 */
 		//强制停止全部服务
 		void	forceStopAllServices();
 
+		/**
+		 * 启动全部服务
+		 */
 		//清除全部服务并重置
 		void	clearAllServices();
 
 		//------------------------------------------
 		//	单个服务管理
 
+		/**
+		 * 启动全部服务
+		 */
 		//获取服务
-		SERVICE_TYPE	getService( int id );
+		SERVICE_OBJECT	getService( unsigned long dwServiceId );
 
+		/**
+		 * 启动全部服务
+		 */
 		//启动单个服务
-		void	startService( SERVICE_TYPE service, int threadNum = XASIO_SERVICE_THREAD_NUM );
+		void	startService( SERVICE_OBJECT service, unsigned int threadNum = XASIO_SERVICE_THREAD_NUM );
 
+		/**
+		 * 启动全部服务
+		 */
 		//停止单个服务
-		void	stopService( SERVICE_TYPE service );
+		void	stopService( SERVICE_OBJECT service );
 
-		//移除服务（并停止）
-		void	removeService( SERVICE_CTYPE service );
-		void	removeService( int serviceId );
+		/**
+		 * 移除指定服务（并停止）
+		 */
+		void	removeService( SERVICE_OBJECT service );
+		/**
+		 * 移除指定ID的服务（并停止）
+		 */
+		void	removeService( unsigned long dwServiceId );
 
-		io_service&		getIOService();
-
-	public:
-		void	setLogHandler( std::function<void( const char* )> handler );
+		/**
+		 * 获取asio_id接口
+		 */
+		io_service&		getAsioIOService();
 
 	protected:
-		//阻塞式运行全部服务
-		void	runAllServices( int threadNum = XASIO_SERVICE_THREAD_NUM );
+		void	runAllServices( unsigned int threadNum = XASIO_SERVICE_THREAD_NUM );
 		
-		void	stopAndFree( SERVICE_TYPE service  );
+		void	stopAndFree( SERVICE_OBJECT service  );
 
-		virtual void freeService( SERVICE_TYPE service );
+		void	freeService( SERVICE_OBJECT service );
 				
 		void	onLog( std::string& err );
 		void	onLog( const char* pInfo );
 
+		void	runIOService( unsigned int threadNum );
 		size_t	runIOServiceThread( error_code& ec );
-		void	runIOService( int threadNum );
-				
-	protected:
-		//------------------------------------------
-		//	member
-		CONTAINER_TYPE		m_srvContainer;
-		mutex				m_srvMutex;
 
-		io_service			m_ioService;
-		boost::shared_ptr<io_service::work>		m_ptrIoServiceWork;
-
+	protected:		
+		/**
+		 * 控制器是否启动
+		 */
 		bool				m_bIsStarted;
 
-		std::function<void( const char* )>		m_funcLogHandler;
+		/**
+		 * 服务容器
+		 */
+		SERVICE_CONTAINER	m_serviceContainer;
+
+		/**
+		 * ASIO服务
+		 */
+		io_service			m_ioService;
+		IOWORK_PTR			m_ptrIoWork;
+
+		mutex				m_srvMutex;
 	};
 }

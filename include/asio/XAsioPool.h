@@ -85,10 +85,13 @@ namespace XGAME
 		bool			addObject( OBJECT_CTYPE& obj );
 
 		/**
-		* 返回对象
-		*/
+		 * 返回对象
+		 */
 		bool			releaseObject( OBJECT_CTYPE& obj );
 		
+		/**
+		 * 定时器的响应处理
+		 */
 		virtual bool	onTimer( unsigned int id, const void* pUserData );
 
 	protected:
